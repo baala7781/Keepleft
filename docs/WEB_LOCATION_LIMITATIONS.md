@@ -1,0 +1,9 @@
+# Web location limitations
+
+KeepLeft web asks the browser for repeated location updates with `watchPosition()` and `enableHighAccuracy: true`. The [W3C Geolocation specification](https://www.w3.org/TR/geolocation/) says that high accuracy is a request the browser may ignore, and that the API does not guarantee the device's true position. Browser callbacks can originate from different underlying location sources. `coords.accuracy` is a horizontal radius in metres at approximately [95% confidence](https://developer.mozilla.org/en-US/docs/Web/API/GeolocationCoordinates/accuracy); it is not an exact error bound.
+
+On supported Android devices, [Google Location Accuracy](https://support.google.com/android/answer/3467281?hl=en) can combine GPS, Wi-Fi, cellular signals and sensor data. This can help when satellite reception is obscured indoors or near buildings. A web page cannot select or directly control those underlying providers through the Geolocation API. A browser may receive the platform's improved estimate, but KeepLeft cannot promise the same result as Google Maps in a basement or parking garage.
+
+KeepLeft's web target is therefore: use accurate fixes for distance, show the reported quality plainly, hold the last trusted runner position when fixes are poor, and mark unmeasured gaps on recovery. It must not infer travel along a straight line or pretend an uncertain location is exact. Nearby-world loading may use a coarser approximate area without adding distance or moving the runner. GPS capture remains independent of map loading and frame rate.
+
+Location traces are sensitive. Raw diagnostic fixes captured during a web recording remain on the device with that activity; they are not sent to analytics or map matching services. Deleting the activity must delete its associated raw trace. Route export/share must continue to use accepted samples only unless the user explicitly requests another export format.

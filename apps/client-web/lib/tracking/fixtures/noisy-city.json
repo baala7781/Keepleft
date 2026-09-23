@@ -1,0 +1,1 @@
+{"kind":"linear","activity":"run","meters":1000,"durationSeconds":500,"intervalSeconds":5,"accuracyM":12,"noiseMeters":2,"expectedDistanceM":1000,"toleranceM":110}

@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "name": "Madmaheshwar \u00b7 Uttarakhand",
+  "origin": {
+    "lng": 79.221686,
+    "lat": 30.635189
+  },
+  "source": "OpenStreetMap",
+  "license": "ODbL-1.0",
+  "attribution": "\u00a9 OpenStreetMap contributors",
+  "sourceUrl": "https://www.openstreetmap.org/copyright",
+  "snapshot": "2026-09-20T05:37:00.756399+00:00",
+  "sha256": "fec7a89ac46d7c4a56ce6f4fc7dd44a32a5e687c31685b107e7045e982ce70e3",
+  "bounds": [
+    79.212,
+    30.629,
+    79.231,
+    30.642
+  ],
+  "featureCount": 16,
+  "route": [
+    [
+      79.2216994,
+      30.6349439
+    ],
+    [
+      79.2216566,
+      30.6350528
+    ],
+    [
+      79.221704,
+      30.6355581
+    ],
+    [
+      79.2213607,
+      30.6356781
+    ],
+    [
+      79.2212963,
+      30.636075
+    ],
+    [
+      79.221437,
+      30.6367697
+    ],
+    [
+      79.2211676,
+      30.6372382
+    ],
+    [
+      79.2218006,
+      30.638032
+    ],
+    [
+      79.2225945,
+      30.6385121
+    ],
+    [
+      79.2229693,
+      30.639483
+    ],
+    [
+      79.2229593,
+      30.6399336
+    ]
+  ],
+  "terrain": {
+    "source": "Mapzen Terrain Tiles (SRTM)",
+    "sourceUrl": "https://registry.opendata.aws/terrain-tiles/",
+    "tile": "terrain-12-2949-1681.png",
+    "encoding": "terrarium",
+    "z": 12,
+    "x": 2949,
+    "y": 1681
+  }
+}

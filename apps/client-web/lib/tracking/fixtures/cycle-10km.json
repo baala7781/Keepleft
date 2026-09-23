@@ -1,0 +1,1 @@
+{"kind":"linear","activity":"cycle","meters":10000,"durationSeconds":1800,"intervalSeconds":5,"accuracyM":5,"expectedDistanceM":10000,"toleranceM":60}

@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.*
+
+# Testing & Coverage
+coverage/
+
+# Next.js / Vinext / Vite / Web build outputs
+.next/
+.vinext/
+out/
+dist/
+dist-mobile/
+outputs/
+work/
+.vercel
+.wrangler/
+.openai/
+next-env.d.ts
+*.tsbuildinfo
+
+
+# Mobile / Android / iOS
+local.properties
+*.apk
+*.aab
+*.aar
+.gradle/
+**/android/**/build/
+**/android/build/
+**/android/.gradle/
+**/.cxx/
+**/.externalNativeBuild/
+DerivedData/
+*.jks
+*.keystore
+
+# Logs & Debug
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment & Secrets
+.env
+.env*.local
+*.pem
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+*.swp
+*.swo

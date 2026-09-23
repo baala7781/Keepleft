@@ -1,0 +1,1 @@
+{"kind":"linear","activity":"walk","meters":1000,"durationSeconds":700,"intervalSeconds":5,"accuracyM":5,"expectedDistanceM":1000,"toleranceM":15}

@@ -1,0 +1,1 @@
+{"kind":"jump","activity":"run","meters":100,"durationSeconds":50,"intervalSeconds":5,"accuracyM":5,"spikeMeters":500,"expectedDistanceM":100,"toleranceM":8}

@@ -1,0 +1,16 @@
+---
+description: Preserve the verified Keepleft replay reliability fix and diagnose future motion faults correctly
+alwaysApply: true
+---
+
+# Replay reliability invariant
+
+- Version `0.2.16-reconnect-bridge` is the first phone-validated build with no replay pauses or flicker on the 2026-09-22 route.
+- A repeatable fault at one route position is evidence from the recorded timeline or a location-triggered world transition; inspect `activeElapsedMs`, `breakBefore`, adjacent distance/speed, and neighborhood changes before tuning rendering.
+- The 14-minute fault was a 14-second recorder-created segment boundary with endpoints only 1.34 m apart and confirmed movement on both sides. Earlier continuous-gap and frame-clock fixes could not affect it because replay intentionally held all `breakBefore` gaps.
+- The successful fix preserves raw samples, segment boundaries, distance, duration, and metrics, but bridges only the visual presentation of a short nearby reconnect with movement on both sides.
+- Replay startup must activate only the current world. Prefetch the next cached neighborhood silently; never eagerly publish every route neighborhood while playback is active.
+- Keep Android render resolution stable from map creation and keep bounded replay clock catch-up. Do not reintroduce runtime canvas resizing.
+- Keep cycling/fast legacy presentation off road snapping; do not recreate the parallel-road zigzag.
+- Do not alter `replay.ts`, `replay-timing.ts`, `use-neighborhood.ts`, renderer lifecycle, or quality budgets for routine UI work. Any necessary change requires targeted tests, the exact saved replay, full tests, web/mobile builds, and a physical-phone replay check.
+- Never bundle private GeoJSON or diagnostic coordinates. Temporary imports must be removed from source, web output, Android assets, and the final APK.
