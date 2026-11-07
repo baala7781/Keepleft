@@ -1,7 +1,10 @@
 package app.keepleft.mobile;
 
 import android.Manifest;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
@@ -25,6 +28,10 @@ import java.nio.charset.StandardCharsets;
 public class KeepleftRunPlugin extends Plugin {
     private final java.util.concurrent.ExecutorService videoWorker=java.util.concurrent.Executors.newSingleThreadExecutor();
     private StoryEncoder video;
+    @PluginMethod public void openSettings(PluginCall call){
+        try{Intent intent=new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getContext().getPackageName())).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);getContext().startActivity(intent);call.resolve();}
+        catch(Exception e){call.reject("Could not open app settings.");}
+    }
     @PluginMethod public void beginStory(PluginCall call){videoWorker.execute(()->{
         try{if(video!=null)throw new IllegalStateException("Another export is running.");
             File directory=new File(getContext().getCacheDir(),"exports");if(!directory.exists()&&!directory.mkdirs())throw new IllegalStateException();
@@ -48,10 +55,38 @@ public class KeepleftRunPlugin extends Plugin {
             try(FileOutputStream stream=new FileOutputStream(file)){stream.write(bytes);}JSObject result=new JSObject();result.put("id",id);call.resolve(result);
         }catch(Exception e){if(file!=null)file.delete();call.reject("Could not save the GIF. Check free storage and retry.");}
     });}
+    @PluginMethod public void saveImage(PluginCall call){videoWorker.execute(()->{
+        File file=null;
+        try{String encoded=call.getString("png","");if(encoded.length()>16000000)throw new IllegalArgumentException();byte[] bytes=android.util.Base64.decode(encoded,android.util.Base64.DEFAULT);
+            if(bytes.length<8||bytes[0]!=(byte)0x89||bytes[1]!=(byte)0x50||bytes[2]!=(byte)0x4e||bytes[3]!=(byte)0x47)throw new IllegalArgumentException();
+            String id="image-"+java.util.UUID.randomUUID();File directory=new File(getContext().getCacheDir(),"exports");if(!directory.exists()&&!directory.mkdirs())throw new IllegalStateException();file=new File(directory,id+".png");
+            try(FileOutputStream stream=new FileOutputStream(file)){stream.write(bytes);}JSObject result=new JSObject();result.put("id",id);call.resolve(result);
+        }catch(Exception e){if(file!=null)file.delete();call.reject("Could not save the transparent PNG. Check free storage and retry.");}
+    });}
+    @PluginMethod public void saveVideo(PluginCall call){videoWorker.execute(()->{
+        File file=null;
+        try{String encoded=call.getString("video","");if(encoded.length()>128000000)throw new IllegalArgumentException();byte[] bytes=android.util.Base64.decode(encoded,android.util.Base64.DEFAULT);
+            String ext=call.getString("extension","mp4");
+            String id="story-"+java.util.UUID.randomUUID();File directory=new File(getContext().getCacheDir(),"exports");if(!directory.exists()&&!directory.mkdirs())throw new IllegalStateException();file=new File(directory,id+"."+ext);
+            try(FileOutputStream stream=new FileOutputStream(file)){stream.write(bytes);}JSObject result=new JSObject();result.put("id",id);call.resolve(result);
+        }catch(Exception e){if(file!=null)file.delete();call.reject("Could not save the video. Check free storage and retry.");}
+    });}
+    @PluginMethod public void copyImage(PluginCall call){
+        String id=call.getString("id","");if(!id.matches("image-[0-9a-f-]{36}")){call.reject("Invalid image export.");return;}
+        File file=new File(new File(getContext().getCacheDir(),"exports"),id+".png");if(!file.isFile()){call.reject("This PNG is no longer cached. Create it again.");return;}
+        try{Uri uri=FileProvider.getUriForFile(getContext(),getContext().getPackageName()+".fileprovider",file);ClipboardManager clipboard=(ClipboardManager)getContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);clipboard.setPrimaryClip(ClipData.newUri(getContext().getContentResolver(),"Keepleft route",uri));call.resolve();}
+        catch(Exception e){call.reject("Could not copy the PNG. Use Share instead.");}
+    }
     @PluginMethod public void shareStory(PluginCall call){
-        String id=call.getString("id","");if(!id.matches("(story|sticker)-[0-9a-f-]{36}")){call.reject("Invalid export.");return;}
-        boolean sticker=id.startsWith("sticker-");File file=new File(new File(getContext().getCacheDir(),"exports"),id+(sticker?".gif":".mp4"));if(!file.isFile()){call.reject("This export is no longer cached. Create it again.");return;}
-        Intent share=new Intent(Intent.ACTION_SEND).setType(sticker?"image/gif":"video/mp4").putExtra(Intent.EXTRA_STREAM,FileProvider.getUriForFile(getContext(),getContext().getPackageName()+".fileprovider",file)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        String id=call.getString("id","");if(!id.matches("(story|sticker|image)-[0-9a-f-]{36}")){call.reject("Invalid export.");return;}
+        File dir=new File(getContext().getCacheDir(),"exports");
+        File file=new File(dir,id+".mp4");
+        String mime="video/mp4";
+        if(id.startsWith("sticker-")){file=new File(dir,id+".gif");mime="image/gif";}
+        else if(id.startsWith("image-")){file=new File(dir,id+".png");mime="image/png";}
+        else if(!file.isFile()&&new File(dir,id+".webm").isFile()){file=new File(dir,id+".webm");mime="video/webm";}
+        if(!file.isFile()){call.reject("This export is no longer cached. Create it again.");return;}
+        Intent share=new Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM,FileProvider.getUriForFile(getContext(),getContext().getPackageName()+".fileprovider",file)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         getActivity().runOnUiThread(()->{try{getActivity().startActivity(Intent.createChooser(share,"Share your route animation"));call.resolve();}catch(Exception e){call.reject("No app could open this export.");}});
     }
     private RunEngine engine(){return RunEngine.get(getContext());}
@@ -95,6 +130,9 @@ public class KeepleftRunPlugin extends Plugin {
     @PluginMethod public void get(PluginCall call){try{JSObject result=new JSObject();JSONObject a=engine().database.get(call.getString("id",""));if(a!=null)result.put("activity",a);call.resolve(result);}catch(Exception e){call.reject("Could not read this run.");}}
     @PluginMethod public void save(PluginCall call){try{JSONObject activity=call.getObject("activity");if(activity==null||engine().database.get(activity.getString("id"))==null)throw new IllegalStateException();call.resolve();}catch(Exception e){call.reject("This run has not been saved. Stop recording and retry.");}}
     @PluginMethod public void remove(PluginCall call){try{engine().removeSaved(call.getString("id",""));call.resolve();}catch(Exception e){call.reject("Could not delete this run. Stop recording first.");}}
+    @PluginMethod public void clearData(PluginCall call){try{
+        engine().clearAllData();File directory=new File(getContext().getCacheDir(),"exports");File[] files=directory.listFiles();if(files!=null)for(File file:files)file.delete();call.resolve();
+    }catch(Exception e){call.reject(e.getMessage()==null?"Could not delete Keepleft data.":e.getMessage());}}
     @PluginMethod public void getMap(PluginCall call){try{JSObject result=new JSObject();JSONObject world=engine().database.map(call.getString("key",""));if(world!=null)result.put("world",world);call.resolve(result);}catch(Exception e){call.reject("Could not read saved map.");}}
     @PluginMethod public void putMap(PluginCall call){try{engine().database.putMap(call.getObject("world"));call.resolve();}catch(Exception e){call.reject("Could not save map for offline use.");}}
     @PluginMethod public void exportRoute(PluginCall call){

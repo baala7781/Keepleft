@@ -1,5 +1,7 @@
 # Keepleft routine UI and release handoff
 
+> Historical task allocation. For current implementation evidence, build commands, remaining limitations and release gates use [the owner handbook](handbook/README.md), updated 29 September 2026. Several UI/legal items below now exist in source but still require device qualification.
+
 Status: Android `0.2.16-reconnect-bridge` passed the user's same-route Pixel 7 check with no pauses or flicker. Preserve the reliability rule in `.cursor/rules/replay-reliability.mdc` and do not refactor tracking/rendering while completing this list.
 
 ## Phase 1 — blocking mobile UI fixes

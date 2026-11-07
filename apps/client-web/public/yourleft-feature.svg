@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 500">
+ <defs>
+  <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#101316"/><stop offset=".52" stop-color="#1b1f21"/><stop offset="1" stop-color="#08090b"/></linearGradient>
+  <linearGradient id="route" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#9e2036"/><stop offset=".5" stop-color="#fb3855"/><stop offset="1" stop-color="#ff8990"/></linearGradient>
+  <radialGradient id="v"><stop offset=".5" stop-color="#08090b" stop-opacity="0"/><stop offset="1" stop-color="#050607" stop-opacity=".65"/></radialGradient>
+ </defs>
+ <rect width="1024" height="500" fill="url(#bg)"/>
+ <g fill="none" stroke="#9aa0a0" stroke-opacity=".16" stroke-width="2">
+  <path d="M-70 354q151-130 292-49t240-7q130-132 244-30t282-28q108-104 158-43"/><path d="M-40 394q154-119 287-44t240-12q126-105 240-28t273-14q102-78 145-37"/>
+  <path d="M-20 436q150-100 282-36t237-16q123-83 236-23t255-8q90-53 149-23"/><path d="M15 477q140-77 263-31t231-14q111-61 222-20t235-4q73-30 115-13"/>
+  <path d="M600 20q-36 88 22 145t-3 105q-46 45 18 96t3 112m120-450q-47 85 7 146t-1 112q-49 55 12 102t7 110m120-444q-62 73-4 143t-4 113q-42 49 13 101t10 106"/>
+ </g>
+ <g fill="#b3b6b6" opacity=".65">
+  <path d="m592 287 33-18 25 12v29l-33 18-25-12z"/><path d="m649 311 26-15 20 10v24l-27 15-19-10z"/>
+  <path d="m700 273 39-21 27 13v30l-39 21-27-14z"/><path d="m769 316 30-17 22 11v25l-30 17-22-12z"/>
+  <path d="m851 275 28-16 21 11v23l-28 17-21-11z"/><path d="m914 322 34-20 24 12v28l-35 19-23-12z"/>
+  <path d="m520 373 31-18 23 12v25l-31 18-23-12z"/><path d="m619 395 37-21 28 14v28l-38 21-27-14z"/>
+  <path d="m754 382 27-15 19 10v22l-28 16-18-10z"/><path d="m895 409 35-20 25 12v28l-35 20-25-13z"/>
+ </g>
+ <path d="M472 500c-16-61 42-87 70-119s-8-74 39-100c43-25 78 4 112-27 35-32 1-67 44-91 37-22 77 2 119-30 29-22 27-55 65-76" fill="none" stroke="#5c1421" stroke-width="22" stroke-linecap="round"/>
+ <path d="M472 500c-16-61 42-87 70-119s-8-74 39-100c43-25 78 4 112-27 35-32 1-67 44-91 37-22 77 2 119-30 29-22 27-55 65-76" fill="none" stroke="url(#route)" stroke-width="8" stroke-linecap="round"/>
+ <circle cx="472" cy="500" r="10" fill="#ff455f"/><circle cx="921" cy="57" r="9" fill="#ff8790"/>
+ <rect width="1024" height="500" fill="url(#v)"/>
+ <path d="M66 0h445L394 500H0V0z" fill="#090b0d" opacity=".77"/>
+ <text x="82" y="202" fill="#f2f2f1" font-family="Arial,Helvetica,sans-serif" font-size="72" font-weight="700" letter-spacing="-3">YourLeft</text>
+ <text x="88" y="245" fill="#a9adae" font-family="Arial,Helvetica,sans-serif" font-size="15" letter-spacing="7">SAME ROADS. A CLEARER YOU.</text>
+ <path d="M89 286h74" stroke="#f13b55" stroke-width="4" stroke-linecap="round"/>
+ <text x="88" y="333" fill="#e6e7e7" font-family="Arial,Helvetica,sans-serif" font-size="22" letter-spacing="2">YOUR MOVEMENT,</text>
+ <text x="88" y="366" fill="#e6e7e7" font-family="Arial,Helvetica,sans-serif" font-size="22" letter-spacing="2">REPLAYED AS A WORLD.</text>
+</svg>

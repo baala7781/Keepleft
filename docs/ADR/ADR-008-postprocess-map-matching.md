@@ -9,3 +9,7 @@ The renderer may align displayed samples and the position marker to an unambiguo
 Recording segments remain separate. Only short breaks whose endpoints are within 10 metres and have a clear mapped connection of at most 18 metres get a dashed display connector. This is an inferred connection, not recorded movement; longer or unsupported gaps remain open. No distance or time is added. An in-app toggle disables display alignment and connectors. Stored samples, reported activity totals, GeoJSON exports and photo-story routes remain unchanged.
 
 The road/building spatial indexes and incremental route-prefix cache bound routine work. Native capture remains independent of this renderer. Display line updates are throttled with worker backpressure; geometry is not allocated per recorded point.
+
+## 29 September 2026 implementation addendum
+
+The current matcher uses bounded reported accuracy (8–20 m), rather than the original fixed 8 m design limit. It now traverses multiple actually connected road sections with a bounded 256-iteration local search when the single-road/shared-junction fast path fails. Building-intersecting raw fallback connectors become display-only breaks, without editing recording boundaries or metrics. Cycling/fast-legacy presentation remains unaligned. See [location/road handover](../handbook/04-LOCATION-MAPS-AND-DATA.md) for limitations and verification.

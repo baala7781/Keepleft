@@ -29,3 +29,11 @@ export async function saveWorld(world:NeighborhoodWorld):Promise<void>{
     transaction.onabort=()=>{db.close();resolve();};
   });
 }
+
+export async function clearWorldCache():Promise<void>{
+  const db=await database();if(!db)return;
+  await new Promise<void>(resolve=>{
+    const transaction=db.transaction('areas','readwrite');transaction.objectStore('areas').clear();
+    transaction.oncomplete=()=>{db.close();resolve();};transaction.onerror=()=>{db.close();resolve();};transaction.onabort=()=>{db.close();resolve();};
+  });
+}

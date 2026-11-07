@@ -10,7 +10,7 @@ function frame(status:'recording'|'paused'|'complete'='recording',count=1):Nativ
   return {source:'gps',activity:{version:1,id:'synthetic-run',source:'gps',startedAtMs:1000,endedAtMs:status==='complete'?16000:0,snapshot:{...initialSnapshot,status,elapsedMs:15000,distanceM:22}},samples:Array.from({length:count},(_,i)=>point(i)),sampleCount:count,fix:point(count-1),mapFix:point(count-1),locationState:'ready',message:'Synthetic state'};
 }
 function fixture(state=frame()){
-  const bridge={state:vi.fn().mockResolvedValue(state),command:vi.fn().mockResolvedValue(state),list:vi.fn().mockResolvedValue({activities:[]}),get:vi.fn(),save:vi.fn().mockResolvedValue(undefined),remove:vi.fn().mockResolvedValue(undefined),getMap:vi.fn(),putMap:vi.fn(),exportRoute:vi.fn()} satisfies NativeBridge;
+  const bridge={state:vi.fn().mockResolvedValue(state),command:vi.fn().mockResolvedValue(state),list:vi.fn().mockResolvedValue({activities:[]}),get:vi.fn(),save:vi.fn().mockResolvedValue(undefined),remove:vi.fn().mockResolvedValue(undefined),clearData:vi.fn().mockResolvedValue(undefined),openSettings:vi.fn().mockResolvedValue(undefined),getMap:vi.fn(),putMap:vi.fn(),exportRoute:vi.fn()} satisfies NativeBridge;
   return {bridge,runtime:new AndroidActivityRuntime(bridge)};
 }
 const settled=()=>new Promise(resolve=>setTimeout(resolve,0));
@@ -85,6 +85,7 @@ describe('Android capture bridge',()=>{
     runtime.pause();runtime.pause();expect(runtime.busy).toBe(true);expect(bridge.command).toHaveBeenCalledTimes(1);
     finish(frame('paused'));await settled();expect(runtime.getSnapshot().status).toBe('paused');
     const store=new AndroidActivityStore(bridge);await store.remove('synthetic-run');expect(bridge.remove).toHaveBeenCalledWith({id:'synthetic-run'});
+    await store.clearAll();expect(bridge.clearData).toHaveBeenCalledOnce();
     runtime.dispose();
   });
 });

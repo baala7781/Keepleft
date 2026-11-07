@@ -19,6 +19,7 @@ const intersects=(a:XY,b:XY,c:XY,d:XY)=>cross(a,b,c)*cross(a,b,d)<0&&cross(c,d,a
 export class RoutePresentation {
   private grid=new Map<string,Edge[]>();
   private longEdges:Edge[]=[];
+  private junctions=new Map<string,{point:XY;links:{point:XY;length:number}[]}>();
   private buildingGrid=new Map<string,BuildingForm[]>();
   private largeBuildings:BuildingForm[]=[];
   private tip?:Match;
@@ -42,8 +43,12 @@ export class RoutePresentation {
       const road:Road={points,lengths:[0],nodes:new Map()};
       points.forEach((p,i)=>{if(i)road.lengths.push(road.lengths[i-1]+distance(points[i-1],p));const k=node(p);road.nodes.set(k,[...(road.nodes.get(k)||[]),i]);});
       for(let i=1;i<points.length;i++){
-        if(++count>30000){this.grid.clear();this.longEdges=[];return;}
+        if(++count>30000){this.grid.clear();this.longEdges=[];this.junctions.clear();return;}
         const edge={road,index:i-1,a:points[i-1],b:points[i]};if(distance(edge.a,edge.b)<.05)continue;
+        for(const [a,b] of [[edge.a,edge.b],[edge.b,edge.a]]){
+          const key=node(a),junction=this.junctions.get(key)||{point:a,links:[]};
+          junction.links.push({point:b,length:distance(a,b)});this.junctions.set(key,junction);
+        }
         const x0=Math.floor(Math.min(edge.a.x,edge.b.x)/32),x1=Math.floor(Math.max(edge.a.x,edge.b.x)/32),y0=Math.floor(Math.min(edge.a.y,edge.b.y)/32),y1=Math.floor(Math.max(edge.a.y,edge.b.y)/32);
         if((x1-x0+1)*(y1-y0+1)>256){if(this.longEdges.length<128)this.longEdges.push(edge);continue;}
         for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){const k=cell(x,y),edges=this.grid.get(k)||[];edges.push(edge);this.grid.set(k,edges);}
@@ -96,7 +101,34 @@ export class RoutePresentation {
         const left={...a,point:a.road.points[i],along:a.road.lengths[i]},right={...b,point:b.road.points[j],along:b.road.lengths[j]};
         consider([...this.along(a,left),...this.along(right,b)]);
       }
-    }return best;
+    }
+    return best||this.connectSections(a,b,max);
+  }
+  /** OSM splits streets into multiple ways. Search only the small local corridor,
+   * never the whole city, and never invent a junction between nearby roads. */
+  private connectSections(a:Match,b:Match,max:number):XY[]|undefined{
+    const queue:{point:XY;length:number;path:XY[]}[]=[],costs=new Map<string,number>();
+    for(const point of a.road.points.slice(a.index,a.index+2)){
+      const length=distance(a.point,point);if(length<=max&&this.clear(a.point,point))queue.push({point,length,path:[a.point,point]});
+    }
+    const ends=new Set(b.road.points.slice(b.index,b.index+2).map(node));
+    let best:XY[]|undefined,bestLength=max+.001,visited=0;
+    while(queue.length&&visited++<256){
+      queue.sort((a,b)=>b.length-a.length);const current=queue.pop()!,key=node(current.point);
+      if(current.length>max||current.length>=bestLength||current.length>=(costs.get(key)??Infinity))continue;
+      costs.set(key,current.length);
+      const finishLength=current.length+distance(current.point,b.point);
+      if(ends.has(key)&&finishLength<=max&&finishLength<bestLength&&this.clear(current.point,b.point)){
+        best=[...current.path,b.point];bestLength=finishLength;
+      }
+      for(const link of this.junctions.get(key)?.links||[]){
+        const length=current.length+link.length;
+        if(length<=max&&length<bestLength&&length<(costs.get(node(link.point))??Infinity)&&this.clear(current.point,link.point)){
+          queue.push({point:link.point,length,path:[...current.path,link.point]});
+        }
+      }
+    }
+    return best;
   }
   position(point:{lng:number;lat:number;accuracyM?:number},enabled=true){
     if(!enabled)return point;const local=this.frame.project(point),matched=this.match(local,this.tip,undefined,this.matchRadius(point));
@@ -154,7 +186,10 @@ export class RoutePresentation {
       let target=matched?.point||p;
       if(matched&&shown&&!path&&!this.clear(shown,target)){matched=undefined;target=p;}
       if(path&&matched){for(const via of path.slice(1))if(!shown||distance(shown,via)>.01){add(via);shown=via;}}
-      else {add(target,broken);shown=target;}
+      // If matching is unsupported, retain the original point but do not draw
+      // a confident straight connector through a mapped building. This is a
+      // display discontinuity only: recording boundaries and totals stay intact.
+      else {add(target,broken||!!shown&&!this.clear(shown,target));shown=target;}
       previous=p;prior=matched;
       this.states.push({prior,previous,shown,length:out.length});
     }

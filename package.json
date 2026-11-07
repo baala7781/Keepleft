@@ -2,8 +2,10 @@
   "name": "atlas-root",
   "private": true,
   "scripts": {
+    "build": "npm --prefix apps/client-web run build",
     "android:apk": "npm --prefix apps/client-web run android:apk",
     "android:release": "npm --prefix apps/client-web run android:release",
+    "android:bundle": "npm --prefix apps/client-web run android:bundle",
     "build:mobile": "npm --prefix apps/client-web run build:mobile",
     "android:sync": "npm --prefix apps/client-web run android:sync",
     "test": "npm --prefix apps/client-web test",

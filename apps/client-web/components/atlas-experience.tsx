@@ -1,6 +1,6 @@
 'use client';
 import { Button } from '@/components/ui/button';
-import { Pause, Play, RotateCcw, RotateCw, Square, LocateFixed, Download, Plus, Minus, ChevronUp, ChevronDown, ChevronLeft, SlidersHorizontal, ArrowUpLeft, X, Share2, BookOpen, House, Navigation2, MapPin, Clock3, Gauge, Orbit, Mountain, Footprints, Bike, PersonStanding, Sun, Moon, OctagonX } from 'lucide-react';
+import { Pause, Play, RotateCcw, RotateCw, LocateFixed, Download, Plus, Minus, ChevronUp, ChevronDown, ChevronLeft, SlidersHorizontal, ArrowUpLeft, X, Share2, Settings, House, Navigation2, MapPin, Clock3, Gauge, Orbit, Mountain, Footprints, Bike, PersonStanding, Sun, Moon, OctagonX } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {ActivityLibrary,downloadRoute} from './activity-library';
 import {CameraPopover,cameraChoices} from './camera-popover';
@@ -33,7 +33,9 @@ import {parseWorldTheme} from '@/lib/renderer/world-theme';
 import {renderPixelRatio} from '@/lib/renderer/quality-budget';
 import {sameWorld} from '@/lib/geodata/same-world';
 import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from '@/components/ui/dialog';
-import {isAndroid} from '@/lib/native/bridge';
+import {isAndroid,isIOS} from '@/lib/native/bridge';
+import {NativeRun} from '@/lib/native/bridge';
+import {LEGAL_CONSENT_KEY,LEGAL_VERSION} from '@/lib/legal/consent';
 export { ActivityRuntime } from '@/lib/tracking/activity';
 
 function formatDuration(ms:number) {
@@ -71,7 +73,8 @@ export function AtlasExperience({onHome,initialActivity}: {onHome?:()=>void;init
   const [error,setError]=useState('');
   const [mapRevision,reloadMap]=useState(0);
   const [optionsOpen,setOptionsOpen]=useState(false);
-  const [settingsPage,setSettingsPage]=useState<'main'|'camera'|'lighting'|'graphics'|'activities'|'recovery'|'developer'>('main');
+  const [settingsPage,setSettingsPage]=useState<'main'|'camera'|'lighting'|'graphics'|'activities'|'recovery'|'legal'|'developer'>('main');
+  const [settingsNotice,setSettingsNotice]=useState('');
   const devTools=import.meta.env.VITE_ENABLE_DEV_TOOLS==='true';
   const settings=useRef<HTMLElement>(null);
   const settingsTrigger=useRef<HTMLButtonElement>(null);
@@ -295,13 +298,32 @@ export function AtlasExperience({onHome,initialActivity}: {onHome?:()=>void;init
     try{localStorage.setItem('keepleft-location-explained','1');}catch{/* Session only. */}
     runtime.current.enableLocation();camera('follow');
   };
+  useEffect(()=>{
+    if(!isIOS()||initialActivity)return;
+    let cancelled=false;
+    void import('@/lib/native/ios-location').then(module=>module.hasIOSLocationPermission()).then(granted=>{
+      if(cancelled||runtime.current.source!=='demo'||runtime.current.getSnapshot().status!=='ready')return;
+      if(granted){runtime.current.enableLocation();camera('follow');}
+      else setShowLocationExplain(true);
+    }).catch(()=>{if(!cancelled)setShowLocationExplain(true);});
+    return()=>{cancelled=true;};
+  },[initialActivity]);
+  const openPermissionSettings=async()=>{
+    setSettingsNotice('');
+    if(isAndroid()){try{await NativeRun.openSettings();return;}catch{setSettingsNotice('Device settings could not open. Open Settings → Apps → YourLeft → Permissions.');return;}}
+    setSettingsNotice('Open your browser or device settings, choose YourLeft, then change Location permission.');
+  };
+  const resetConsent=()=>{
+    try{localStorage.removeItem(LEGAL_CONSENT_KEY);}catch{/* Reset still applies to this session. */}
+    setOptionsOpen(false);setSettingsPage('main');window.dispatchEvent(new Event('keepleft:consent-reset'));
+  };
   const exportRoute=()=>{
     downloadRoute(runtime.current.exportGeoJSON());setRetained(true);
   };
   const primary=()=>{
     if(snapshot.status==='recording') runtime.current.pause();
     else if(snapshot.status==='paused') runtime.current.resume();
-    else setActivityPrompt(true);
+    else beginActivity(activityType);
   };
   const beginActivity=(value:ActivityType)=>{
     runtime.current.setActivityType(value);setActivityType(value);setActivityPrompt(false);setRetained(false);runtime.current.start();setDockCollapsed(true);camera('follow',true,true);
@@ -313,7 +335,7 @@ export function AtlasExperience({onHome,initialActivity}: {onHome?:()=>void;init
   const cycle=(replay?.activityType||runtime.current.activityType)==='cycle';
   const speedKph=metrics.status==='complete'?(metrics.elapsedMs>0?metrics.distanceM/(metrics.elapsedMs/1000)*3.6:0):metrics.speedMps*3.6;
   return <main className={`atlas-shell kl-shell${replay?' atlas-replaying':''}`} data-complete={!replay&&snapshot.status==='complete'} data-location-pending={gps&&!nearbyWorld&&!replay}>
-    <div ref={host} className="atlas-map" aria-label={nearbyWorld?'Map around the activity':'Madmaheshwar demo map'} />
+    <div ref={host} className="atlas-map" aria-label={nearbyWorld?'Map around the activity':gps?'Finding your location':'Madmaheshwar demo map'} />
     <div className="atlas-vignette" aria-hidden="true" />
     <header className={`atlas-topbar${replay?' kl-replay-topbar':''}`}>
       {replay&&replayActivity?<>
@@ -321,10 +343,10 @@ export function AtlasExperience({onHome,initialActivity}: {onHome?:()=>void;init
         <div className="kl-replay-identity"><strong>{displayPlace(replayActivity.placeName,'Your saved run')}</strong><small>{replay.isDemoReplay?'Demo run · simulated route':new Date(replayActivity.startedAtMs).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'})}</small></div>
         <Button variant="outline" aria-label="Share this run" disabled={storyLoading} onClick={()=>openStory(replayActivity)}><Share2/></Button>
       </>:<>
-      <div className="atlas-brand"><span className="atlas-mark"><ArrowUpLeft size={24}/></span><div><strong>KeepLeft</strong><small>{nearbyWorld?(nearbyWorld.placeName?displayPlace(nearbyWorld.placeName):replay?.placeName?displayPlace(replay.placeName):nearbyWorld.placeholder?'Loading your neighborhood…':'Your neighborhood'):gps?'Finding your starting point…':'Madmaheshwar, Uttarakhand'}</small></div></div>
+      <div className="atlas-brand"><span className="atlas-mark"><ArrowUpLeft size={24}/></span><div><strong>YourLeft</strong><small>{nearbyWorld?(nearbyWorld.placeName?displayPlace(nearbyWorld.placeName):replay?.placeName?displayPlace(replay.placeName):nearbyWorld.placeholder?'Loading your neighborhood…':'Your neighborhood'):gps?'Finding your starting point…':'Madmaheshwar, Uttarakhand'}</small></div></div>
       <div className="kl-top-actions">
         <Button variant="outline" aria-label={active?'Stop your run before returning home':'Home'} title={active?'Stop your run before returning home':'Home'} disabled={active||(gps&&capture.status==='complete'&&!retained)} onClick={()=>onHome?onHome():window.location.assign('/')}><House/></Button>
-        <Button ref={settingsTrigger} variant="outline" aria-label="Activities and settings" aria-expanded={optionsOpen} aria-controls="run-settings" onClick={()=>{setSettingsPage('main');setOptionsOpen(value=>!value);}}><BookOpen/></Button>
+        <Button ref={settingsTrigger} variant="outline" aria-label="Settings" aria-expanded={optionsOpen} aria-controls="run-settings" onClick={()=>{setSettingsPage('main');setOptionsOpen(value=>!value);}}><Settings/></Button>
       </div>
       </>}
     </header>
@@ -349,7 +371,7 @@ export function AtlasExperience({onHome,initialActivity}: {onHome?:()=>void;init
     <aside ref={settings} className="atlas-location-panel" id="run-settings" data-open={optionsOpen} aria-hidden={!optionsOpen} inert={!optionsOpen}>
       <div className="keepleft-panel-heading">
         {settingsPage!=='main'&&<Button variant="ghost" aria-label="Back to settings" onClick={()=>setSettingsPage('main')}><ChevronLeft/></Button>}
-        <h2>{settingsPage==='main'?'Activity settings':settingsPage==='camera'?'Camera':settingsPage==='lighting'?'World lighting':settingsPage==='graphics'?'Graphics':settingsPage==='activities'?'Saved activities':settingsPage==='recovery'?'Activity recovery':'Developer'}</h2>
+        <h2>{settingsPage==='main'?'Activity settings':settingsPage==='camera'?'Camera':settingsPage==='lighting'?'World lighting':settingsPage==='graphics'?'Graphics':settingsPage==='activities'?'Saved activities':settingsPage==='recovery'?'Activity recovery':settingsPage==='legal'?'Legal & Data':'Developer'}</h2>
         <Button variant="ghost" aria-label="Close settings" onClick={()=>{setOptionsOpen(false);setSettingsPage('main');}}><X/></Button>
       </div>
       <div hidden={!optionsOpen}>
@@ -366,10 +388,7 @@ export function AtlasExperience({onHome,initialActivity}: {onHome?:()=>void;init
           {!runtime.current.nativeRecording&&<button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('recovery')}><span>Activity recovery</span><ChevronLeft/></button>}
           <button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('activities')}><span>Saved activities</span><ChevronLeft/></button>
         </section>
-        <section className="kl-settings-section"><h3>About</h3>
-          <a className="kl-settings-row" href="/about"><span>About &amp; Licenses</span><ChevronLeft/></a>
-          <a className="kl-settings-row" href="/privacy"><span>Privacy Policy</span><ChevronLeft/></a>
-        </section>
+        <section className="kl-settings-section"><h3>About</h3><button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('legal')}><span>Legal &amp; Data</span><strong>Beta</strong><ChevronLeft/></button></section>
         <div className="atlas-location-actions">{gps&&!replay&&!active&&snapshot.status!=='complete'&&<Button variant="outline" onClick={locate} disabled={runtime.current.busy}><LocateFixed/>Retry GPS</Button>}
           {gps&&!active&&<Button variant="outline" disabled={runtime.current.busy||(snapshot.status==='complete'&&!retained)} onClick={()=>{runtime.current.useDemo();camera('orbit');}}>Demo world</Button>}
           {(gps||replay)&&mapStatus.includes('unavailable')&&<Button variant="outline" onClick={retryMap}>Retry nearby map</Button>}
@@ -382,14 +401,27 @@ export function AtlasExperience({onHome,initialActivity}: {onHome?:()=>void;init
       {settingsPage==='graphics'&&<div className="kl-settings-options">{(['battery','balanced','high'] as CameraControls['quality'][]).map(value=><button type="button" key={value} aria-pressed={quality===value} onClick={()=>{controls.current.quality=value;setQuality(value);mapRef.current?.setPixelRatio(renderPixelRatio(value,window.devicePixelRatio||1,isAndroid()));}}><span>{value==='battery'?'Battery saver':value==='balanced'?'Balanced':'High detail'}<small>{value==='battery'?'Longer battery life':value==='balanced'?'Recommended':'More trees and facade detail'}</small></span><i/></button>)}</div>}
       {!runtime.current.nativeRecording&&<div hidden={settingsPage!=='recovery'}><ActivityRecovery runtime={runtime.current} canRecover={!replay&&canReplay} onConflict={onRecoveryConflict} onRecovered={()=>{setRetained(false);setRecoveryConflict(false);camera('follow');}}/>{recoveryConflict&&<Button variant="outline" onClick={()=>downloadRoute(runtime.current.exportGeoJSON())}>Export backup</Button>}</div>}
       <div hidden={settingsPage!=='activities'}><ActivityLibrary runtime={runtime.current} status={capture.status} onSaved={onSaved} onReplay={openReplay} canReplay={canReplay}/></div>
+      {settingsPage==='legal'&&<div className="kl-legal-settings">
+        <p>Private beta · 0.2.18<br/><small>Consent version {LEGAL_VERSION}</small></p>
+        <button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('activities')}><span>Export or delete activity data<small>Back up activities or remove local data</small></span><ChevronLeft/></button>
+        <a className="kl-settings-row" href="/terms"><span>Terms of Use</span><ChevronLeft/></a>
+        <a className="kl-settings-row" href="/privacy"><span>Privacy Policy</span><ChevronLeft/></a>
+        <a className="kl-settings-row" href="/about"><span>About &amp; Licenses</span><ChevronLeft/></a>
+        <button className="kl-settings-row" type="button" onClick={()=>void openPermissionSettings()}><span>Review location permission<small>Opens device settings on Android</small></span><ChevronLeft/></button>
+        <button className="kl-settings-row" type="button" disabled={active} onClick={resetConsent}><span>Review consent again<small>{active?'Finish the activity first':'Resets the local acceptance record'}</small></span><ChevronLeft/></button>
+        {settingsNotice&&<output className="kl-settings-status">{settingsNotice}</output>}
+      </div>}
       {devTools&&settingsPage==='developer'&&<DeveloperDiagnostics runtime={runtime.current} scene={diagnostics} coverage={coverage} mapStatus={mapStatus}/>}
       </div>
     </aside>
-    <div className="kl-dock" ref={dock} data-collapsed={dockCollapsed} data-ready={snapshot.status==='ready'}><div className="kl-dock-content">
+    <div className="kl-dock" ref={dock} data-collapsed={dockCollapsed} data-ready={snapshot.status==='ready'} data-recording={!replay&&active}><div className="kl-dock-content">
+    {!replay&&snapshot.status==='ready'&&<fieldset className="kl-ready-types"><legend className="sr-only">Choose your activity</legend>{(['run','walk','cycle'] as ActivityType[]).map(value=><button key={value} type="button" aria-pressed={activityType===value} disabled={runtime.current.busy} onClick={()=>{runtime.current.setActivityType(value);setActivityType(value);}}>{value==='run'?<Footprints/>:value==='walk'?<PersonStanding/>:<Bike/>}{value==='run'?'Outdoor run':value==='walk'?'Walk':'Cycle'}</button>)}</fieldset>}
+    {!replay&&active&&!dockCollapsed&&<div className="kl-recording-clock"><span>Outdoor {activityType}</span><strong>{formatDuration(snapshot.elapsedMs)}</strong></div>}
     {(replay||snapshot.status!=='ready')&&<div className="kl-dock-heading"><span>{dockCollapsed?`${(snapshot.distanceM/1000).toFixed(2)} km · ${formatDuration(snapshot.elapsedMs)}${replay?' · Replay':''}`:'Activity details'}</span><Button variant="ghost" aria-label={dockCollapsed?'Expand activity details':'Collapse activity details'} aria-expanded={!dockCollapsed} aria-controls="activity-stats" onClick={()=>setDockCollapsed(value=>!value)}>{dockCollapsed?<ChevronUp size={18}/>:<ChevronDown size={18}/>}</Button></div>}
     {!replay&&snapshot.status==='ready'&&<div className="kl-ready"><div><span className="kl-eyebrow">{gps?`Outdoor ${activityType}`:'Demo world'}</span><h1>{gps?(runtime.current.locationState==='ready'?'Ready when you are.':'Find your starting point.'):'Ready when you are.'}</h1></div>{(!gps||['idle','denied','timeout','unavailable'].includes(runtime.current.locationState))&&<Button variant="outline" disabled={runtime.current.busy} onClick={locate}><LocateFixed/>{gps?'Find me':'Use my location'}</Button>}</div>}
-    {gps&&!replay&&snapshot.status!=='complete'&&<div className="kl-signal" role="status" aria-live="polite" data-quality={health.quality}><i/>{runtime.current.locationState==='idle'?'Enable location to get started':runtime.current.locationState==='denied'?'Location permission denied. Open device settings to allow location access.':health.label}</div>}
+    {gps&&!replay&&snapshot.status!=='complete'&&<div className="kl-signal" role="status" aria-live="polite" data-quality={health.quality}><i/>{runtime.current.locationState==='idle'?'Enable location to get started':runtime.current.locationState==='denied'?'Location permission denied. Open device settings to allow location access.':runtime.current.locationState==='unavailable'?'Location unavailable. Check Location Services in device settings.':runtime.current.locationState==='timeout'?'GPS timed out. Move outdoors and retry.':health.label}</div>}
     {runtime.current.actionError&&<p className="kl-error" role="alert">{runtime.current.actionError}</p>}
+    {isIOS()&&nearbyWorld?.placeholder&&mapStatus&&<p className="kl-feedback" role="status">{mapStatus}</p>}
     {replayError&&<p className="kl-error" role="alert">{replayError}</p>}
     {replay&&!dockCollapsed&&<h1 className="kl-replay-title">Same roads. A clearer you.</h1>}
     <section className="atlas-metrics" id="activity-stats" aria-label={replay?'Activity summary':'Live activity metrics'} aria-live="polite" hidden={dockCollapsed}>
@@ -407,7 +439,7 @@ export function AtlasExperience({onHome,initialActivity}: {onHome?:()=>void;init
         {snapshot.status!=='ready'&&<Button className="atlas-stop-control" data-confirm={confirmFinish||undefined} disabled={runtime.current.busy} aria-label={confirmFinish?'Tap again to finish your activity':'Finish activity'} onClick={()=>{if(confirmFinish){if(confirmTimer.current)clearTimeout(confirmTimer.current);confirmTimer.current=null;setConfirmFinish(false);runtime.current.stop();camera('orbit');}else{setConfirmFinish(true);confirmTimer.current=setTimeout(()=>{setConfirmFinish(false);confirmTimer.current=null;},3000);}}}><OctagonX/><span>{confirmFinish?'Tap to confirm':'Finish'}</span></Button>}</>}
     </section>}
     {replay&&replayActivity&&!dockCollapsed&&<Button className="kl-social-post" variant="outline" disabled={storyLoading} onClick={()=>openStory(replayActivity)}><Share2/>{storyLoading?'Preparing story…':'Create social post'}</Button>}
-    {!dockCollapsed&&<p className="kl-dock-motto">{replay?'KeepLeft':'Same roads. A clearer you.'}</p>}
+    {!dockCollapsed&&<p className="kl-dock-motto">{replay?'YourLeft':'Same roads. A clearer you.'}</p>}
     </div>
     </div>
     {(!ready||error)&&<div className="atlas-loading" role={error?'alert':'status'}>{error||'Preparing the map…'}{error&&<Button variant="outline" onClick={()=>reloadMap(value=>value+1)}>Reload map</Button>}</div>}
@@ -421,7 +453,7 @@ export function AtlasExperience({onHome,initialActivity}: {onHome?:()=>void;init
       </div></DialogContent>
     </Dialog>
     <Dialog open={showLocationExplain} onOpenChange={setShowLocationExplain}><DialogContent className="kl-activity-prompt">
-      <DialogHeader><DialogTitle>Your location stays on this device</DialogTitle><DialogDescription>Keepleft uses precise GPS to record your route. Your coordinates are stored locally and never sent to a server. Recording continues when your screen is locked so your full route is captured.</DialogDescription></DialogHeader>
+      <DialogHeader><DialogTitle>Your location stays on this device</DialogTitle><DialogDescription>YourLeft uses precise GPS to record your route. Your coordinates are stored locally and never sent to a YourLeft server. {isAndroid()?'An ongoing Android notification keeps recording active when your screen is locked.':'Keep YourLeft open while recording; this build does not promise background capture.'}</DialogDescription></DialogHeader>
       <div className="kl-activity-choices">
         <button type="button" onClick={confirmLocation}><LocateFixed/><span><strong>Allow location access</strong><small>Required to record a route</small></span></button>
         <button type="button" onClick={()=>setShowLocationExplain(false)}><X/><span><strong>Not now</strong><small>You can enable location later</small></span></button>

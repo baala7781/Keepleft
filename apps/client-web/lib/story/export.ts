@@ -10,9 +10,12 @@ export interface StoryBridge {
   cancelStory(options:{id:string}):Promise<void>;
   shareStory(options:{id:string}):Promise<void>;
   saveSticker(options:{gif:string}):Promise<{id:string}>;
+  saveImage(options:{png:string}):Promise<{id:string}>;
+  copyImage(options:{id:string}):Promise<void>;
+  saveVideo?(options:{video:string;extension?:string}):Promise<{id:string}>;
 }
 export const NativeStory=NativeRun as unknown as StoryBridge;
-export type StoryExport={id?:string;blob?:Blob;extension:'mp4'|'webm'|'gif'};
+export type StoryExport={id?:string;blob?:Blob;extension:'mp4'|'webm'|'gif'|'png'};
 export async function exportNativeStory(scene:StoryScene,options:StoryOptions,signal:AbortSignal,progress:(p:number)=>void,bridge:StoryBridge=NativeStory):Promise<StoryExport>{
   signal.throwIfAborted();const {width,height}=STORY_PRESETS[options.preset??'story'];
   const {id}=await bridge.beginStory({width,height});
@@ -35,7 +38,7 @@ async function jpegFrame(canvas:HTMLCanvasElement,signal:AbortSignal):Promise<st
   return new Promise((resolve,reject)=>{
     const reader=new FileReader(),abort=()=>{reader.abort();reject(new DOMException('Cancelled','AbortError'));};
     signal.addEventListener('abort',abort,{once:true});
-    reader.onload=()=>{signal.removeEventListener('abort',abort);resolve(String(reader.result).split(',')[1]);};
+    reader.onload=()=>{signal.removeEventListener('abort',abort);if(typeof reader.result!=='string'){reject(new Error('Could not read the encoded frame.'));return;}resolve(reader.result.split(',')[1]);};
     reader.onerror=()=>{signal.removeEventListener('abort',abort);reject(new Error('Could not read the encoded frame.'));};
     reader.onabort=()=>signal.removeEventListener('abort',abort);reader.readAsDataURL(blob);
   });

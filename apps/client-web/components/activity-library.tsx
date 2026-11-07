@@ -8,9 +8,10 @@ import type {ActivityRuntime,ActivityStatus} from '@/lib/tracking/activity';
 import {activityStats} from '@/lib/tracking/activity-stats';
 import {createActivityStore} from '@/lib/native/platform';
 import {isAndroid,NativeRun} from '@/lib/native/bridge';
+import {clearWorldCache} from '@/lib/geodata/world-archive';
 
 export function downloadRoute(data:unknown,name='keepleft-activity.geojson') {
-  if(isAndroid()){void NativeRun.exportRoute({data:JSON.stringify(data),name}).catch(()=>window.alert('Could not export this route. It remains saved in Keepleft.'));return;}
+  if(isAndroid()){void NativeRun.exportRoute({data:JSON.stringify(data),name}).catch(()=>window.alert('Could not export this route. It remains saved in YourLeft.'));return;}
   const url=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/geo+json'}));
   const link=document.createElement('a');link.href=url;link.download=name;link.click();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -42,9 +43,9 @@ export function ActivityLibrary({runtime,status,onSaved,onReplay,canReplay}:{run
   useEffect(()=>{
     const activity=runtime.completedActivity();
     if(status==='complete'&&activity&&attempted.current!==activity.id)void save();
-    if(status==='recording'&&runtime.source==='gps'){setMessage('The completed run saves when you stop.');setSaveError(false);}
-    if(runtime.source==='demo'){setMessage('');setSaveError(false);}
   },[status,runtime,save]);
+  const contextualMessage=status==='recording'&&runtime.source==='gps'?'The completed run saves when you stop.':runtime.source==='demo'?'':message;
+  const showSaveError=runtime.source!=='demo'&&status!=='recording'&&saveError;
   const exportSaved=async(id:string)=>{
     try{
       const activity=await store.current.get(id);
@@ -85,9 +86,15 @@ export function ActivityLibrary({runtime,status,onSaved,onReplay,canReplay}:{run
     finally{setBusy(false);}
   };
   const removeAll=async()=>{
-    if(busy)return;setBusy(true);
+    if(busy)return;
+    if(status==='recording'||status==='paused'){setMessage('Finish or discard the current activity before deleting all data.');setConfirmDeleteAll(false);return;}
+    setBusy(true);
     try{
-      for(const a of activities){await store.current.remove(a.id);}
+      await store.current.clearAll();
+      await clearWorldCache();
+      try{for(const key of ['keepleft-location-explained','keepleft-gestures-seen','keepleft-world-lighting','keepleft-legal-consent'])localStorage.removeItem(key);}catch{/* Activity deletion still succeeded. */}
+      window.dispatchEvent(new CustomEvent('keepleft-world-lighting-change',{detail:'night'}));
+      window.dispatchEvent(new Event('keepleft:consent-reset'));
       await refresh();
       window.dispatchEvent(new CustomEvent('keepleft:activities-changed'));
       setMessage('All saved data deleted from this device.');
@@ -96,10 +103,10 @@ export function ActivityLibrary({runtime,status,onSaved,onReplay,canReplay}:{run
     finally{setBusy(false);}
   };
   return <div className="atlas-library">
-    {message&&<p role="status">{message}</p>}
-    {saveError&&<Button variant="outline" disabled={busy} onClick={()=>void save()}>Retry save</Button>}
+    {contextualMessage&&<output>{contextualMessage}</output>}
+    {showSaveError&&<Button variant="outline" disabled={busy} onClick={()=>void save()}>Retry save</Button>}
     <details open><summary>Saved activities · {activities.length}</summary>
-      <small>{runtime.nativeRecording?'Saved on this phone. Uninstalling Keepleft removes local recordings.':'Only in this browser. Clearing site data removes them. Export a backup.'}</small>
+      <small>{runtime.nativeRecording?'Saved on this phone. Uninstalling YourLeft removes local recordings.':'Only in this browser. Clearing site data removes them. Export a backup.'}</small>
       <ul>{activities.map(activity=><li key={activity.id}>
         <span>{activity.placeName&&`${activity.placeName} · `}{new Date(activity.startedAtMs).toLocaleDateString()} · {(activity.snapshot.distanceM/1000).toFixed(2)} km · {Math.floor(activity.snapshot.elapsedMs/60000)} min</span>
         <div><Button variant="outline" disabled={busy} onClick={()=>void showDetails(activity.id)}>Details</Button><Button variant="outline" disabled={!canReplay||busy||!activity.sampleCount} onClick={()=>void replaySaved(activity.id)}>Replay</Button><Button variant="outline" onClick={()=>void exportSaved(activity.id)}>Export</Button>
@@ -107,8 +114,8 @@ export function ActivityLibrary({runtime,status,onSaved,onReplay,canReplay}:{run
       </li>)}</ul>
       {!activities.length&&<p>No saved GPS activities yet.</p>}
       {activities.length>0&&<div style={{display:'flex',gap:8,marginTop:12,flexWrap:'wrap'}}>
-        <Button variant="outline" disabled={busy} onClick={()=>void exportAll()}>Export all data</Button>
-        <Button variant="outline" disabled={busy} onClick={()=>setConfirmDeleteAll(true)}>Delete all data</Button>
+        <Button variant="outline" disabled={busy} onClick={()=>void exportAll()}>Export all activities</Button>
+        <Button variant="outline" disabled={busy||status==='recording'||status==='paused'} onClick={()=>setConfirmDeleteAll(true)}>Delete all data</Button>
       </div>}
     </details>
     <Dialog open={selected!==null} onOpenChange={open=>{if(!open)setSelected(null);}}>
@@ -122,7 +129,7 @@ export function ActivityLibrary({runtime,status,onSaved,onReplay,canReplay}:{run
           {import.meta.env.VITE_ENABLE_DEV_TOOLS==='true'&&<><article><span>GPS POINTS</span><strong>{stats.sampleCount.toLocaleString()}</strong></article>
           <article><span>GPS QUALITY</span><strong>{stats.medianAccuracyM===null?'—':`±${Math.round(stats.medianAccuracyM)} m`}</strong><small>{stats.segmentCount} {stats.segmentCount===1?'SEGMENT':'SEGMENTS'}</small></article></>}
         </div>;})()}
-        <p className="atlas-storage-note">{runtime.nativeRecording?'Saved on this phone. Export a copy before uninstalling Keepleft.':'Saved in this browser. Export a copy before clearing browser data.'}</p>
+        <p className="atlas-storage-note">{runtime.nativeRecording?'Saved on this phone. Export a copy before uninstalling YourLeft.':'Saved in this browser. Export a copy before clearing browser data.'}</p>
         <DialogFooter>
           <Button variant="outline" onClick={()=>void exportSaved(selected.id)}>Export</Button>
           <Button disabled={!canReplay||!selected.samples.length} onClick={()=>{const activity=selected;setSelected(null);onReplay(activity);}}>Replay run</Button>
@@ -136,7 +143,7 @@ export function ActivityLibrary({runtime,status,onSaved,onReplay,canReplay}:{run
     </AlertDialog>
     <AlertDialog open={confirmDeleteAll} onOpenChange={open=>{if(!open&&!busy)setConfirmDeleteAll(false);}}>
       <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete all saved data?</AlertDialogTitle>
-      <AlertDialogDescription>All saved activities and routes will be permanently removed from this device. This cannot be undone. Export your data first if you want a backup.</AlertDialogDescription></AlertDialogHeader>
+      <AlertDialogDescription>Saved activities, unfinished recordings, map cache, and YourLeft preferences will be permanently removed from this device. This cannot be undone. Export your activities first if you want a backup.</AlertDialogDescription></AlertDialogHeader>
       <AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={()=>void removeAll()}>Delete all data</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
     </AlertDialog>
   </div>;

@@ -4,6 +4,6 @@ export const noir = {
   roadEdge:'#777c7c', road:'#292c2d', roadCenter:'#a0a19e',
   building:'#e0e2e3', roof:'#a0a4a6',
   canopy:'#57604f', trunk:'#494744', window:'#a9a18e',
-  route:'#fa4058', routeCore:'#ffb0b8', halo:'#b91835',
+  route:'#e33b63', routeCore:'#e0e2e3', halo:'#8d2648',
   text:'#dddddc', textHalo:'#111314',
 } as const;

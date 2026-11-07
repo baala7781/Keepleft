@@ -23,13 +23,12 @@ export class RouteSticker {
   dispose(){this.replay.dispose();}
 }
 /** Portable graphic of the recorded path. It neither snaps nor repairs GPS samples. */
-export function drawRouteSticker(ctx:CanvasRenderingContext2D,route:RouteSticker,seconds:number){
-  const tip=route.at(seconds),points=route.points;ctx.clearRect(0,0,480,480);ctx.lineCap='round';ctx.lineJoin='round';
+export function drawRouteSticker(ctx:CanvasRenderingContext2D,route:RouteSticker,seconds:number,clear=true){
+  const tip=route.at(seconds),points=route.points;if(clear)ctx.clearRect(0,0,480,480);ctx.lineCap='round';ctx.lineJoin='round';
   const path=(completed:boolean)=>{ctx.beginPath();let previous:typeof points[number]|undefined;for(const p of points){if(completed&&p.time>tip.time)break;if(!previous||p.breakBefore)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);previous=p;}if(completed&&previous&&!tip.gap)ctx.lineTo(tip.x,tip.y);};
-  path(false);ctx.strokeStyle='#ffffff';ctx.lineWidth=8;ctx.stroke();ctx.strokeStyle='#a0bdec';ctx.lineWidth=4;ctx.stroke();
-  path(true);ctx.strokeStyle='#ffffff';ctx.lineWidth=12;ctx.stroke();ctx.strokeStyle='#f33b53';ctx.lineWidth=7;ctx.stroke();
-  const first=points[0];ctx.beginPath();ctx.arc(first.x,first.y,5,0,Math.PI*2);ctx.fillStyle='#ffffff';ctx.fill();ctx.strokeStyle='#f33b53';ctx.lineWidth=2;ctx.stroke();
-  // Small runner symbol; no human with a misleading geographic scale.
-  ctx.save();ctx.translate(tip.x,tip.y);ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,15,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f33b53';ctx.beginPath();ctx.arc(0,0,12.5,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(2,-7,2.2,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2.3;ctx.beginPath();ctx.moveTo(1,-3);ctx.lineTo(-2,2);ctx.lineTo(3,5);ctx.lineTo(5,9);ctx.moveTo(-2,2);ctx.lineTo(-6,7);ctx.moveTo(0,-2);ctx.lineTo(5,0);ctx.lineTo(7,-3);ctx.moveTo(0,-2);ctx.lineTo(-4,-4);ctx.lineTo(-7,-1);ctx.stroke();ctx.restore();
+  path(false);ctx.strokeStyle='#e6e5e2';ctx.lineWidth=7;ctx.stroke();ctx.strokeStyle='#8d2648';ctx.lineWidth=4;ctx.stroke();
+  path(true);ctx.strokeStyle='#e6e5e2';ctx.lineWidth=12;ctx.stroke();ctx.strokeStyle='#e33b63';ctx.lineWidth=7;ctx.stroke();
+  const first=points[0];ctx.beginPath();ctx.arc(first.x,first.y,5,0,Math.PI*2);ctx.fillStyle='#e6e5e2';ctx.fill();ctx.strokeStyle='#e33b63';ctx.lineWidth=2;ctx.stroke();
+  // A crisp position ring works for walking, running and cycling at every export scale.
+  ctx.save();ctx.translate(tip.x,tip.y);ctx.fillStyle='#e6e5e2';ctx.beginPath();ctx.arc(0,0,12,0,Math.PI*2);ctx.fill();ctx.fillStyle='#e33b63';ctx.beginPath();ctx.arc(0,0,8,0,Math.PI*2);ctx.fill();ctx.restore();
 }

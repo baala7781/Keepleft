@@ -7,6 +7,7 @@ export class AndroidActivityStore implements ActivityStore {
   async list(){return (await this.bridge.list()).activities;}
   async get(id:string){return (await this.bridge.get({id})).activity;}
   remove(id:string){return this.bridge.remove({id});}
+  clearAll(){return this.bridge.clearData();}
   async checkpoint(){}
   async drafts(){return [];}
   async claim(_draft:ActivityDraft):Promise<ActivityDraft>{throw new Error('Android resumes its saved recording automatically.');}

@@ -17,6 +17,7 @@ export interface ActivityStore {
   list():Promise<ActivitySummary[]>;
   get(id:string):Promise<SavedActivity|undefined>;
   remove(id:string):Promise<void>;
+  clearAll():Promise<void>;
   checkpoint(draft:ActivityDraft):Promise<void>;
   drafts():Promise<ActivityDraft[]>;
   claim(draft:ActivityDraft,owner:string):Promise<ActivityDraft>;
@@ -148,6 +149,11 @@ export class IndexedDBActivityStore implements ActivityStore {
       tx.objectStore('activities').delete(id);tx.objectStore('summaries').delete(id);
     });
   }
+  clearAll() {
+    return this.transaction<void>('readwrite',tx=>{
+      tx.objectStore('activities').clear();tx.objectStore('summaries').clear();tx.objectStore('drafts').clear();
+    });
+  }
 }
 
 /** Synthetic adapter: callers cannot mutate stored records through shared references. */
@@ -176,4 +182,5 @@ export class MemoryActivityStore implements ActivityStore {
   async list(){return [...this.records.values()].map(summary).sort((a,b)=>b.startedAtMs-a.startedAtMs).map(a=>structuredClone(a));}
   async get(id:string){const a=this.records.get(id);return a?structuredClone(a):undefined;}
   async remove(id:string){this.records.delete(id);}
+  async clearAll(){this.records.clear();this.pending.clear();}
 }

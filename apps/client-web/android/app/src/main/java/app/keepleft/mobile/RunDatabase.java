@@ -58,6 +58,11 @@ final class RunDatabase extends SQLiteOpenHelper {
             db.delete("points","run_id=?",new String[]{id});db.delete("runs","id=? AND complete=1",new String[]{id});db.setTransactionSuccessful();
         }finally{db.endTransaction();}
     }
+    synchronized void clearAll() {
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
+        try{db.delete("points",null,null);db.delete("runs",null,null);db.delete("current_state",null,null);db.delete("maps",null,null);db.setTransactionSuccessful();}
+        finally{db.endTransaction();}
+    }
     synchronized JSONObject map(String key) throws Exception {try(Cursor c=getReadableDatabase().rawQuery("SELECT payload FROM maps WHERE key=?",new String[]{key})){return c.moveToFirst()?new JSONObject(c.getString(0)):null;}}
     synchronized void putMap(JSONObject world) throws Exception {
         String payload=world.toString();if(payload.length()>8*1024*1024)throw new IllegalArgumentException("Map too large");

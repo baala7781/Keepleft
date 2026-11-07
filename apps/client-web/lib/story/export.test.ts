@@ -3,7 +3,7 @@ import {exportNativeStory,type StoryBridge} from './export';
 import type {StoryScene} from './scene';
 import {DEFAULT_PLACEMENT} from './placement';
 const scene={canvas:{toDataURL:()=> 'data:image/jpeg;base64,synthetic'},draw:vi.fn(),dispose:vi.fn()} as unknown as StoryScene;
-const bridge=()=>({beginStory:vi.fn().mockResolvedValue({id:'synthetic'}),storyFrame:vi.fn().mockResolvedValue(undefined),finishStory:vi.fn().mockResolvedValue(undefined),cancelStory:vi.fn().mockResolvedValue(undefined),shareStory:vi.fn(),saveSticker:vi.fn()} satisfies StoryBridge);
+const bridge=()=>({beginStory:vi.fn().mockResolvedValue({id:'synthetic'}),storyFrame:vi.fn().mockResolvedValue(undefined),finishStory:vi.fn().mockResolvedValue(undefined),cancelStory:vi.fn().mockResolvedValue(undefined),shareStory:vi.fn(),saveSticker:vi.fn(),saveImage:vi.fn(),copyImage:vi.fn()} satisfies StoryBridge);
 describe('native story export adapter',()=>{
   it.each([['story',1280],['feed',900],['square',720]] as const)('starts the native encoder with matching %s dimensions',async(preset,height)=>{
     const b=bridge();await exportNativeStory(scene,{caption:'',placement:DEFAULT_PLACEMENT,preset},new AbortController().signal,()=>{},b);

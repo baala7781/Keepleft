@@ -10,6 +10,7 @@ import {formatActivityTime, activityStats} from '@/lib/tracking/activity-stats';
 import {downloadRoute} from './activity-library';
 import {RoutePortrait} from './route-portrait';
 import {displayPlace} from '@/lib/geodata/display-place';
+import {athleteStats} from '@/lib/tracking/athlete-stats';
 const StoryStudio=lazy(()=>import('./story-studio').then(m=>({default:m.StoryStudio})));
 
 function HistoryThumbnail({id,store}:{id:string;store:ActivityStore}){
@@ -49,11 +50,9 @@ export function KeepleftHome({onOpen,onStats}: {onOpen?: (activity?: SavedActivi
     finally { setLoading(false); }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
-  const totals = useMemo(() => activities.reduce((sum, run) => ({
-    distance: sum.distance + run.snapshot.distanceM,
-    time: sum.time + run.snapshot.elapsedMs,
-    longest: Math.max(sum.longest, run.snapshot.distanceM),
-  }), {distance: 0, time: 0, longest: 0}), [activities]);
+  const week = useMemo(() => athleteStats(activities,loading?new Date(2026,0,1):new Date()), [activities,loading]);
+  const latestStats=latest?activityStats(latest):undefined;
+  const weekMax=Math.max(1,...week.days.map(day=>day.distanceM));
   const earlierActivities=activities.slice(1);
   const open = (activity?: SavedActivity) => {
     if (onOpen) onOpen(activity);
@@ -81,8 +80,8 @@ export function KeepleftHome({onOpen,onStats}: {onOpen?: (activity?: SavedActivi
   const stats = selected ? activityStats(selected) : undefined;
   return <main className="kl-home">
     <header className="kl-home-header">
-      <div className="kl-home-brand"><a className="kl-wordmark" href="/" aria-label="Keepleft home"><ArrowUpLeft aria-hidden="true"/><span>KeepLeft</span></a><small>Same roads. A clearer you.</small></div>
-      <Button className="kl-start" onClick={() => open()}><Footprints/><span className="kl-start-wide">Start a run</span><span className="kl-start-short">Start</span></Button>
+      <div className="kl-home-brand"><a className="kl-wordmark" href="/" aria-label="YourLeft home"><ArrowUpLeft aria-hidden="true"/><span>YourLeft</span></a><small>Same roads. A clearer you.</small></div>
+      <Button className="kl-start" onClick={() => open()}><Footprints/><span className="kl-start-wide">Start activity</span><span className="kl-start-short">Start</span></Button>
     </header>
     <div className="kl-home-body">
       <section className="kl-journey" aria-labelledby="journey-title">
@@ -91,7 +90,7 @@ export function KeepleftHome({onOpen,onStats}: {onOpen?: (activity?: SavedActivi
           <h1 id="journey-title">{latest ? displayPlace(latest.placeName,'Your outdoor run') : 'Your next run starts here.'}</h1>
           <p>{latest ? new Date(latest.startedAtMs).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'}) : 'Run your route. Come back and see it in motion.'}</p>
           {latest ? <>
-            <div className="kl-journey-distance"><strong>{(latest.snapshot.distanceM / 1000).toFixed(2)}</strong><span>km travelled</span></div>
+            <div className="kl-journey-metrics"><div><span>Distance</span><strong>{latestStats?.distanceKm.toFixed(2)} <small>km</small></strong></div><div><span>Duration</span><strong>{latestStats?.activeTime}</strong></div><div><span>{latest.activityType==='cycle'?'Avg. speed':'Avg. pace'}</span><strong>{latest.activityType==='cycle'?latestStats?.averageSpeedKph.toFixed(1):latestStats?.averagePace.replace(' /km','')}<small> {latest.activityType==='cycle'?'km/h':'/km'}</small></strong></div></div>
             <Button className="kl-action" onClick={() => open(latest)} disabled={!latest.samples.length}><Play/>Replay this run</Button>
             <Button className="kl-social-post" variant="outline" onClick={()=>setStory(latest)} disabled={!latest.samples.length}><Share2/>Create social post</Button>
           </> : <Button variant="outline" onClick={() => open()}><Mountain/>Open the world</Button>}
@@ -100,12 +99,9 @@ export function KeepleftHome({onOpen,onStats}: {onOpen?: (activity?: SavedActivi
           {loading ? <p role="status">Loading your last run…</p> : latest?.samples.length ? <RoutePortrait samples={latest.samples}/> : <div className="kl-empty-route" aria-hidden="true"><Mountain/></div>}
         </div>
       </section>
-      <div className="kl-section-heading"><div><span className="kl-section-label">All-time · this device</span><h2>Your totals</h2></div><small>{activities.length} saved {activities.length===1?'activity':'activities'}</small></div>
-      <section id="run-stats" className="kl-athlete-strip" aria-label="All-time activity totals">
-        <div><span>Distance covered</span><strong>{(totals.distance / 1000).toFixed(1)} <small>km</small></strong></div>
-        <div><span>Time outside</span><strong>{formatActivityTime(totals.time)}</strong></div>
-        <div><span>Runs saved</span><strong>{activities.length}</strong></div>
-        <div><span>Longest run</span><strong>{(totals.longest / 1000).toFixed(1)} <small>km</small></strong></div>
+      <section id="run-stats" className="kl-week-summary" aria-label="Last seven days">
+        <div className="kl-section-heading"><h2>Last seven days</h2><small>{week.activeThisWeek} activities · {(week.weekDistanceM/1000).toFixed(1)} km</small></div>
+        <div className="kl-week-content"><div className="kl-week-bars">{week.days.map(day=><div key={day.key}><div className="kl-week-track"><i style={{height:`${Math.max(day.distanceM?8:3,day.distanceM/weekMax*100)}%`}} data-active={day.distanceM>0}/></div><span>{day.label}</span><span className="sr-only">{(day.distanceM/1000).toFixed(2)} km</span></div>)}</div><div className="kl-week-total"><Footprints/><strong>{(week.weekDistanceM/1000).toFixed(1)}</strong><span>km</span><small>Seven-day total</small></div></div>
       </section>
       <section id="journal" className="kl-journal" aria-labelledby="journal-title" aria-busy={loading}>
         <div className="kl-journal-heading"><h2 id="journal-title">Earlier activities</h2><Button variant="ghost" aria-label="Refresh saved runs" disabled={loading || busy} onClick={() => void refresh()}><RefreshCw size={18}/></Button></div>
@@ -124,6 +120,8 @@ export function KeepleftHome({onOpen,onStats}: {onOpen?: (activity?: SavedActivi
         </ol> : <div className="kl-history-empty"><p>{activities.length?'No earlier activities yet.':'No saved activities yet.'}</p><span>{activities.length?'Your next completed activity will appear here.':'Your completed activities will appear here, ready to replay.'}</span></div>}
       </section>
       <footer className="kl-home-footer" style={{padding:'24px 0 16px',textAlign:'center',fontSize:'0.75rem',color:'#666',display:'flex',justifyContent:'center',gap:'16px'}}>
+        <a href="/terms" style={{color:'#888',textDecoration:'none'}}>Terms</a>
+        <span aria-hidden="true">·</span>
         <a href="/about" style={{color:'#888',textDecoration:'none'}}>About &amp; Licenses</a>
         <span aria-hidden="true">·</span>
         <a href="/privacy" style={{color:'#888',textDecoration:'none'}}>Privacy Policy</a>

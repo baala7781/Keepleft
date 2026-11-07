@@ -7,7 +7,7 @@ import {neighborhoodFor} from './osm';
 import {WorldCorridor} from './world-corridor';
 import {readWorld,saveWorld} from './world-archive';
 import {predictedNeighborhoods} from './world-prediction';
-import {isAndroid} from '../native/bridge';
+import {isAndroid,isIOS} from '../native/bridge';
 
 const emptyRoute:{lng:number;lat:number}[]=[];
 export function useNeighborhood(runtime:MotionSource,activityType:ActivityType='run',routePoints:{lng:number;lat:number}[]=emptyRoute) {
@@ -35,7 +35,7 @@ export function useNeighborhood(runtime:MotionSource,activityType:ActivityType='
       void (async()=>{
         const stored=await readWorld(area.key);
         if(stored)return stored;
-        const response=isAndroid()?await import('../native/maps').then(module=>module.loadAndroidNeighborhood(area.x,area.y,controller.signal)):
+        const response=isAndroid()||isIOS()?await import('../native/maps').then(module=>module.loadNativeNeighborhood(area.x,area.y,controller.signal)):
           await fetch(`/api/world?x=${area.x}&y=${area.y}`,{signal:controller.signal}).then(async result=>{
             if(!result.ok)throw new Error('Nearby map unavailable');return result.json() as Promise<NeighborhoodWorld>;
           });
@@ -52,7 +52,7 @@ export function useNeighborhood(runtime:MotionSource,activityType:ActivityType='
         if(activate||area.key===currentKey)publish();
       }).catch(error=>{
         if(disposed||error.name==='AbortError')return;
-        failed.set(area.key,Date.now());if(area.key===currentKey)setStatus('World data is temporarily unavailable');
+        failed.set(area.key,Date.now());if(area.key===currentKey)setStatus('Nearby map unavailable. Check your connection and retry. GPS recording is available.');
       }).finally(()=>{pending.delete(area.key);});
     };
     const routeAreas:ReturnType<typeof neighborhoodFor>[]=[];

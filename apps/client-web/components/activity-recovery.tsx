@@ -33,7 +33,7 @@ export function ActivityRecovery({runtime,canRecover,onRecovered,onConflict}:{ru
       const claimed=await store.current.claim(draft,runtime.sessionId);
       runtime.restore(claimed);setDrafts(items=>items.filter(d=>d.activity.id!==draft.activity.id));onRecovered();
       setMessage('Recovered to the last saved checkpoint. Resume requests GPS; time while the app was closed is not counted.');
-    }catch{setMessage('This run changed or could not be recovered. Close other Keepleft tabs and reload to try again.');}
+    }catch{setMessage('This run changed or could not be recovered. Close other YourLeft tabs and reload to try again.');}
     finally{setBusy(false);}
   };
   const finish=async(draft:ActivityDraft)=>{
@@ -45,7 +45,7 @@ export function ActivityRecovery({runtime,canRecover,onRecovered,onConflict}:{ru
       setDrafts(items=>items.filter(item=>item.activity.id!==draft.activity.id));
       window.dispatchEvent(new Event('keepleft:activities-changed'));
       setMessage('Unfinished activity ended and saved on this device.');
-    }catch{setMessage('Could not finish this activity. Close other Keepleft tabs and try again.');}
+    }catch{setMessage('Could not finish this activity. Close other YourLeft tabs and try again.');}
     finally{setBusy(false);}
   };
   const discard=async()=>{
@@ -55,12 +55,12 @@ export function ActivityRecovery({runtime,canRecover,onRecovered,onConflict}:{ru
       await store.current.discardDraft(claimed.activity.id,runtime.sessionId);
       setDrafts(items=>items.filter(item=>item.activity.id!==draft.activity.id));
       setDiscarding(null);setMessage('Unfinished recovery record discarded.');
-    }catch{setMessage('Could not discard this activity. Close other Keepleft tabs and try again.');}
+    }catch{setMessage('Could not discard this activity. Close other YourLeft tabs and try again.');}
     finally{setBusy(false);}
   };
   return <div className="atlas-recovery">
     {!!drafts.length&&<details open><summary>Unfinished runs · {drafts.length}</summary>
-      <small>Close other Keepleft tabs first. Resume or save the partial activity.</small>
+      <small>Close other YourLeft tabs first. Resume or save the partial activity.</small>
       {drafts.map(d=><div key={d.activity.id}>
         <p>{new Date(d.savedAtMs).toLocaleString()} · {(d.activity.snapshot.distanceM/1000).toFixed(2)} km · {Math.floor(d.activity.snapshot.elapsedMs/60000)} min</p>
         <div className="kl-recovery-actions"><Button variant="outline" disabled={!canRecover||busy} onClick={()=>void recover(d)}>Resume</Button>

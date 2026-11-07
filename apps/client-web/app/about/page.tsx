@@ -1,13 +1,14 @@
 import {ArrowLeft} from 'lucide-react';
+import Link from 'next/link';
 
 export default function AboutPage() {
   return <main className="kl-stats-page" style={{paddingBottom:'calc(64px + env(safe-area-inset-bottom))'}}>
-    <header className="kl-stats-header"><a className="kl-stats-back" href="/" aria-label="Back to home"><ArrowLeft/></a><div><span className="kl-settings-eyebrow">KeepLeft</span><h1>About &amp; Licenses</h1></div></header>
+    <header className="kl-stats-header"><Link className="kl-stats-back" href="/" aria-label="Back to home"><ArrowLeft/></Link><div><span className="kl-settings-eyebrow">YourLeft</span><h1>About &amp; Licenses</h1></div></header>
 
     <section style={{maxWidth:720,lineHeight:1.7,fontSize:'.9rem',color:'#ccc'}}>
       <h2 style={{font:'600 1.15rem var(--font-body)',margin:'32px 0 12px'}}>Your data</h2>
-      <p>Keepleft records GPS coordinates on your device only. Your route, metrics and photos are stored in your browser's local database (IndexedDB). No coordinates are sent to a server. Map tiles are loaded from public OpenStreetMap endpoints; these requests include your approximate viewport, not your exact position or activity history.</p>
-      <p>When you export or share a story, the output file stays on your device until you choose where to send it. Keepleft does not gain rights to your photos.</p>
+      <p>GPS activity records are stored on your device using IndexedDB on the web and the app&apos;s private SQLite database on Android. Selected photos remain in memory while you compose a story. Saved activity history is not sent to a YourLeft server. Public map requests include the approximate viewport needed to load nearby geography and may expose ordinary network metadata such as an IP address to map providers.</p>
+      <p>When you export or share a story, the output file stays on your device until you choose where to send it. YourLeft does not gain rights to your photos.</p>
 
       <h2 style={{font:'600 1.15rem var(--font-body)',margin:'32px 0 12px'}}>Map data</h2>
       <p>© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" style={{color:'var(--accent-secondary)'}}>OpenStreetMap contributors</a>, ODbL 1.0. Building footprints, road centerlines, water, park and terrain features are derived from OpenStreetMap. Live neighborhood data is queried from public <a href="https://wiki.openstreetmap.org/wiki/Overpass_API" target="_blank" rel="noopener noreferrer" style={{color:'var(--accent-secondary)'}}>Overpass API</a> endpoints.</p>
@@ -25,8 +26,8 @@ export default function AboutPage() {
       </ul>
 
       <h2 style={{font:'600 1.15rem var(--font-body)',margin:'32px 0 12px'}}>Delete your data</h2>
-      <p>All saved activities, routes and preferences are stored locally. You can delete all data from <strong>Activity settings → Saved activities</strong> in the run screen, or clear your browser's site data for this app.</p>
-      <p style={{marginTop:16}}><a href="/privacy" style={{color:'var(--accent-secondary)'}}>Read our full Privacy Policy →</a></p>
+      <p>All saved activities, unfinished recordings, offline maps and preferences are stored locally. You can delete them from <strong>Activity settings → Saved activities</strong> in the run screen, or clear your browser&apos;s site data for this app.</p>
+      <p style={{marginTop:16}}><Link href="/terms" style={{color:'var(--accent-secondary)'}}>Terms of Use</Link> · <Link href="/privacy" style={{color:'var(--accent-secondary)'}}>Privacy Policy</Link></p>
     </section>
   </main>;
 }

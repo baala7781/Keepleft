@@ -55,3 +55,8 @@ Thumbs.db
 *.iml
 *.swp
 *.swo
+
+# Local clones & temporary checkouts
+Untitled/
+keepleft/
+

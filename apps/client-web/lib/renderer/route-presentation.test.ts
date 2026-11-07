@@ -37,6 +37,26 @@ describe('conservative local route presentation',()=>{
     const p=new RoutePresentation(roads([[0,0],[0,50]],[[0,50],[60,50]]),frame);
     expect(p.trail(route([2,40],[10,48])).map(p=>[p.lng,p.lat])).toEqual([[0,40],[0,50],[10,50]]);
   });
+  it('follows several split road sections around a building instead of cutting through it',()=>{
+    const building:BuildingForm={id:'block',properties:{kind:'building',height:10},bounds:new Box2(new Vector2(3,3),new Vector2(17,17)),polygon:[[[3,3],[17,3],[17,17],[3,17],[3,3]]]};
+    const p=new RoutePresentation(roads([[0,-10],[0,10]],[[0,10],[0,20],[10,20]],[[10,20],[30,20]]),frame,[building]);
+    const input=route([1,0],[20,19]),before=structuredClone(input);
+    expect(p.trail(input).map(p=>[p.lng,p.lat])).toEqual([[0,0],[0,10],[0,20],[10,20],[20,20]]);
+    expect(input).toEqual(before);
+  });
+  it('breaks only the display connector when raw fallback would cross a building',()=>{
+    const building:BuildingForm={id:'block',properties:{kind:'building',height:10},bounds:new Box2(new Vector2(-2,8),new Vector2(2,12)),polygon:[[[-2,8],[2,8],[2,12],[-2,12],[-2,8]]]};
+    const p=new RoutePresentation(roads([[0,0],[0,20]]),frame,[building]);
+    const input=route([0,7],[0,13]),before=structuredClone(input);
+    expect(p.trail(input)[1].breakBefore).toBe(true);
+    expect(routeLines(p.trail(input)).features).toEqual([]);
+    expect(input).toEqual(before);
+    expect(p.trail(input,false)).toEqual(input);
+  });
+  it('does not invent a multi-section connection across unmapped gaps',()=>{
+    const p=new RoutePresentation(roads([[0,0],[0,10]],[[0,11],[0,20]],[[0,20],[20,20]]),frame);
+    expect(p.trail(route([1,0],[20,19])).at(-1)).toMatchObject({lng:20,lat:19});
+  });
   it('retains a genuine out-and-back rather than removing repeat visits',()=>{
     const p=new RoutePresentation(roads([[0,-10],[0,100]]),frame);
     const out=p.trail(route([1,0],[1,20],[1,40],[1,20],[1,0]));expect(out).toHaveLength(5);[0,20,40,20,0].forEach((y,i)=>expect(out[i].lat).toBeCloseTo(y));

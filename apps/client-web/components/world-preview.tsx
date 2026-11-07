@@ -7,7 +7,7 @@ import {neutralCamera,type CameraControls} from '@/lib/renderer/camera';
 import {mapStyle} from '@/lib/geodata/map-style';
 import {neighborhoodFor} from '@/lib/geodata/osm';
 import type {NeighborhoodWorld} from '@/lib/geodata/service';
-import {isAndroid} from '@/lib/native/bridge';
+import {isAndroid,isIOS} from '@/lib/native/bridge';
 import manifest from '@/public/fixtures/madhyamaheshwar/manifest.json';
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import {RoutePortrait} from './route-portrait';
@@ -41,7 +41,7 @@ export function WorldPreview({activity,onPoster}:{activity?:SavedActivity;onPost
         if(activity&&activity.source!=='demo'){
           const position=source.getMapPosition();if(!position)throw new Error();
           const area=neighborhoodFor(position);
-          nearby=isAndroid()?await import('@/lib/native/maps').then(m=>m.loadAndroidNeighborhood(area.x,area.y,abort.signal)):await fetch('/api/world?x='+area.x+'&y='+area.y,{signal:abort.signal}).then(async r=>{if(!r.ok)throw new Error();return r.json();});
+          nearby=isAndroid()||isIOS()?await import('@/lib/native/maps').then(m=>m.loadNativeNeighborhood(area.x,area.y,abort.signal)):await fetch('/api/world?x='+area.x+'&y='+area.y,{signal:abort.signal}).then(async r=>{if(!r.ok)throw new Error();return r.json();});
         }
         const data=world.validateWorld(nearby?.data||await fetch('/fixtures/madhyamaheshwar/world.geojson',{signal:abort.signal}).then(r=>{if(!r.ok)throw new Error();return r.json();}));
         if(abort.signal.aborted||!host.current)return;

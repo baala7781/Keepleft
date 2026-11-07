@@ -1,5 +1,13 @@
 # Geographic fixture provenance
 
+## Current platform and terrain note — 29 September 2026
+
+The historical Hussain Sagar details below remain its provenance, not the complete current default-world description. The default demo now uses `apps/client-web/public/fixtures/madhyamaheshwar/manifest.json`: Madmaheshwar, an OSM snapshot dated 20 September 2026, with a bundled Mapzen Terrain Tiles (SRTM) Terrarium tile. Source: https://registry.opendata.aws/terrain-tiles/. Preserve fixture/terrain attribution and inspect upstream attribution requirements before redistributing new extracts.
+
+`demo-terrain.ts` renders a DEM-derived backdrop with a central flat clearing and faded outer boundary; it is not full live-route terrain draping. Live recorded worlds remain on their existing render plane. Web map requests use `/api/world`; native Android and iOS now use Capacitor HTTP with local caches. All send approximate geographic query areas to public services when uncached. See [the current map/data guide](handbook/04-LOCATION-MAPS-AND-DATA.md).
+
+## Hussain Sagar fixture
+
 The Hussain Sagar fixture is a bounded OpenStreetMap extract. It contains real building footprints, road centerlines and the Hussain Sagar water multipolygon (relation 2833155). The demo route follows Tank Bund Road (way 313222139); it is synthetic playback, not a recorded activity or a recommended pedestrian route.
 
 - Source: https://www.openstreetmap.org/

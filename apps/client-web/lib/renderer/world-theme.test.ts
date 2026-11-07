@@ -6,7 +6,7 @@ import {normalizeOSM} from '../geodata/osm';
 import {buildingForms} from './buildings';
 import * as THREE from 'three';
 
-it('keeps a crimson route and defaults unsupported preferences to noir daylight',()=>{
+it('keeps the crimson route across themes and defaults unsupported preferences to noir daylight',()=>{
   expect(parseWorldTheme('night')).toBe('night');
   for(const value of [null,'bad','',undefined])expect(parseWorldTheme(value)).toBe('day');
   expect(worldThemes.night.palette.route).toBe(worldThemes.day.palette.route);

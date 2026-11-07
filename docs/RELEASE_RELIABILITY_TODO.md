@@ -1,5 +1,7 @@
 # V1 reliability work and handoff
 
+> Historical checklist (22 September). Current source/build status, including successful iOS installation and native foreground GPS/maps, is in [the 29 September handbook](handbook/README.md). iOS background capture remains incomplete. Do not treat the old Xcode-blocked boxes below as current status.
+
 2026-09-22. User requests Astra focus on difficult engineering; Gemini handles routine UI. Do not call the app release-ready until device qualification passes.
 
 ## Astra: current reliability slice

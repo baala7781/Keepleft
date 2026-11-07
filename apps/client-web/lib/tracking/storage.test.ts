@@ -38,6 +38,13 @@ for(const [name,factory] of [
     expect((await store.list())[0]).not.toHaveProperty('sampleDecisions');
     await store.remove(record.id);expect(await store.get(record.id)).toBeUndefined();
   });
+  it('clears completed activities and recovery drafts together',async()=>{
+    const store=factory();await store.save(activity());
+    const pausedRecord=activity('paused');
+    const paused:ActivityDraft={version:1,owner:'session',revision:1,savedAtMs:7000,activity:{...pausedRecord,source:'gps',endedAtMs:0,snapshot:{...pausedRecord.snapshot,status:'paused'},samples:pausedRecord.samples.map((sample,index)=>({...sample,activeElapsedMs:index?5000:0}))}};
+    await store.checkpoint(paused);await store.clearAll();
+    expect(await store.list()).toEqual([]);expect(await store.drafts()).toEqual([]);
+  });
 });
 describe('local database durability and exports',()=>{
   const draft=():ActivityDraft=>({version:1,owner:'old-session',revision:1,savedAtMs:6000,activity:{...activity(),source:'gps',endedAtMs:0,

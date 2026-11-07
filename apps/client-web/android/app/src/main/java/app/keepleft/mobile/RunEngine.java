@@ -74,6 +74,12 @@ final class RunEngine implements LocationListener {
         // Removing the currently displayed completed run must not resurrect it on reopen.
         if(id.equals(savedId)){id="";status="ready";count=0;activeMs=0;distance=0;speed=0;message="Run deleted.";}
     }
+    synchronized void clearAllData() throws Exception {
+        if(active())throw new IllegalStateException("Finish or discard the current activity first.");
+        stopListening();database.clearAll();source="demo";status="ready";id="";place="";locationState="idle";message="";activityType="run";
+        startedWall=0;endedWall=0;activeMs=0;segmentStart=0;lastTimestamp=0;lastGoodElapsed=0;lastAcceptedTimestamp=0;distance=0;speed=0;count=0;fix=null;mapFix=null;
+        filter=new RunFilter();previewFilter=new RunFilter();sourceGate.reset();
+    }
     synchronized void preview() throws Exception {
         if(active())throw new IllegalStateException("Pause or stop the current run first.");
         stopListening();sourceGate.reset();source="gps";status="ready";id="";place="";activeMs=0;distance=0;speed=0;count=0;fix=null;mapFix=null;lastTimestamp=0;previewFilter=new RunFilter();
