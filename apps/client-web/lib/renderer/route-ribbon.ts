@@ -6,7 +6,7 @@ import {noir} from './noir-palette';
 /** Width changes in the shader; zooming never rebuilds the route or its recorded samples. */
 export function ribbonGeometry(points:RoutePoint[],frame:LocalFrame){
   const positions:number[]=[],offsets:number[]=[];
-  const vertex=(x:number,z:number,nx:number,nz:number)=>{positions.push(x,.44,z);offsets.push(nx,nz);};
+  const vertex=(x:number,z:number,nx:number,nz:number)=>{positions.push(x,.48,z);offsets.push(nx,nz);};
   let previous:{x:number;y:number}|undefined;
   for(const point of points){
     const p=frame.project(point),x=p.x,z=-p.y;
@@ -47,7 +47,7 @@ export class RibbonBuffer {
     let prior=from?this.frame.project(points[from-1]):undefined;
     for(let i=from;i<points.length;i++){
       const point=points[i],p=this.frame.project(point),x=p.x,z=-p.y;let vertex=i*42;
-      const put=(px:number,pz:number,nx:number,nz:number)=>{position!.setXYZ(vertex,px,.44,pz);offset!.setXY(vertex++,nx,nz);};
+      const put=(px:number,pz:number,nx:number,nz:number)=>{position!.setXYZ(vertex,px,.48,pz);offset!.setXY(vertex++,nx,nz);};
       const dx=prior?x-prior.x:0,dz=prior?z+prior.y:0,length=Math.hypot(dx,dz);
       if(prior&&!point.breakBefore&&length>.001){const nx=-dz/length,nz=dx/length;
         put(prior.x,-prior.y,nx,nz);put(x,z,nx,nz);put(x,z,-nx,-nz);

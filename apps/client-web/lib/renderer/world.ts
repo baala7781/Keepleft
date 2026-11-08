@@ -237,11 +237,14 @@ export function createWorldLayer(
       const snapshot=runtime.getSnapshot(), motion=runtime.getMotion(controls.alignRoads!==false),sample=motion||(runtime.source==='demo'?sampleRoute(0):{...origin,heading:0});
       const thirdPerson=controls.mode==='chase'&&!controls.hideAthlete;
       if(thirdPerson)requestAthlete();
-      runner.visible=!!motion&&thirdPerson&&!athlete;locationDot.visible=!!motion;
-      if(athlete)athlete.group.visible=!!motion&&thirdPerson;
+      runner.visible=!!motion&&thirdPerson&&!athlete&&!controls.hideAthlete;locationDot.visible=!!motion;
+      if(athlete)athlete.group.visible=!!motion&&thirdPerson&&!controls.hideAthlete;
       const isReplay=runtime.source==='replay';
-      const dotPx = runtime.source==='gps'?22:(isReplay||controls.hideAthlete?19:18);
+      const zoom=map.getZoom();
+      const baseDot=7+Math.max(0,Math.min(5,(zoom-14)*1.2));
+      const dotPx=runtime.source==='gps'?(baseDot+2):baseDot;
       dotMaterial.uniforms.size.value=dotPx*Math.min(map.getCanvas().width/Math.max(1,map.getCanvas().clientWidth),2.0);
+      let trailPoints:typeof raw=[];
       if(motion){
         // In 3D Three route / replay, update the GPU ribbon buffer every frame directly
         // so the route ribbon line is 100% in lockstep with the lead dot across all views (orbit, overview, follow).
@@ -249,6 +252,7 @@ export function createWorldLayer(
         const aligned=controls.alignRoads!==false&&runtime.activityType!=='cycle'&&runtime.roadAlignmentRecommended!==false&&runtime.source!=='demo'&&!runtime.isDemoReplay;
         const shown=runtime.source==='gps'?visualRoute(raw,worldFrame,runtime.activityType||'run'):raw;
         const trail=routePresentation.trail(shown,aligned),gaps=routePresentation.gaps(raw,aligned);
+        trailPoints=trail;
         ribbon.update(trail,gaps);
         if(now>=routeAt&&!routePending){
           const routeStart=performance.now();
@@ -260,7 +264,8 @@ export function createWorldLayer(
         }
       }
       const shown=routePresentation.position(sample,controls.alignRoads!==false&&runtime.activityType!=='cycle'&&runtime.roadAlignmentRecommended!==false&&runtime.source!=='demo'&&!runtime.isDemoReplay);
-      const p=worldFrame.project(shown);
+      const leadPoint=trailPoints.length?trailPoints[trailPoints.length-1]:shown;
+      const p=worldFrame.project(leadPoint);
       // Gestures remain available in every mode: populate detail where the camera is looking.
       const detailPoint=worldFrame.project(map.getCenter());
       let phaseAt=performance.now();
@@ -276,7 +281,7 @@ export function createWorldLayer(
       if (floating.update(sample)){renderer.shadowMap.needsUpdate=true;shadowAt=0;}
       const offset=floating.offset;
       root.position.set(-offset.x,-offset.y,-offset.z);
-      motionTarget.set(p.x,0.22,-p.y);
+      motionTarget.set(p.x,0.46,-p.y);
       const breakPoint=motion?.breakBefore?`${sample.lng}/${sample.lat}`:'';
       const reset=!hasPosition||(!!breakPoint&&breakPoint!==lastBreakPoint)||Math.abs(snapshot.elapsedMs-lastReplayTime)>2000&&runtime.source==='replay';
       lastBreakPoint=breakPoint;
@@ -285,7 +290,7 @@ export function createWorldLayer(
       hasPosition=true;
       runner.position.copy(renderedPosition);
       locationDot.position.copy(renderedPosition);
-      locationDot.position.y=1.3;
+      locationDot.position.y=0.52;
       accuracyCircle.visible=!thirdPerson&&runtime.source==='gps'&&!!motion?.accuracyM;
       if(accuracyCircle.visible){accuracyCircle.position.copy(renderedPosition);accuracyCircle.position.y=.24;accuracyCircle.scale.setScalar(Math.max(1,motion!.accuracyM!));}
       const heading=steadyHeading.update(renderedPosition.x,renderedPosition.z,sample.heading,dt,moving,reset,motion?.accuracyM);
@@ -334,7 +339,14 @@ export function createWorldLayer(
           const blend=jump||controls.reducedMotion?1:1-Math.exp(-dt*6);
           map.jumpTo({center:[((current.lng+dlng*blend+540)%360)-180,current.lat+(target.center.lat-current.lat)*blend],bearing:turnToward(map.getBearing(),target.bearing,blend),pitch:target.pitch,zoom:target.zoom});
         }
-        if (controls.mode==='orbit'&&!controls.reducedMotion&&(snapshot.status!=='ready'||controls.selected)) map.jumpTo({bearing:map.getBearing()+dt*2.2});
+        if (controls.mode==='orbit'&&!controls.reducedMotion&&(snapshot.status!=='ready'||controls.selected)){
+          if(motion){
+            const current=map.getCenter();
+            const dlng=((target.center.lng-current.lng+540)%360)-180;
+            const blend=1-Math.exp(-dt*5);
+            map.jumpTo({center:[((current.lng+dlng*blend+540)%360)-180,current.lat+(target.center.lat-current.lat)*blend],bearing:map.getBearing()+dt*2.2});
+          }else map.jumpTo({bearing:map.getBearing()+dt*2.2});
+        }
       }
       lastReplayTime=snapshot.elapsedMs;
       };

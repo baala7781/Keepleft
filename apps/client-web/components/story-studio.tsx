@@ -162,10 +162,18 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
         };
         controls3d.current=controls;
 
+        const samples=shareActivity.samples;
+        let minLng=Infinity,maxLng=-Infinity,minLat=Infinity,maxLat=-Infinity;
+        for(const s of samples){
+          minLng=Math.min(minLng,s.lng);maxLng=Math.max(maxLng,s.lng);
+          minLat=Math.min(minLat,s.lat);maxLat=Math.max(maxLat,s.lat);
+        }
+        const routeCenter=samples.length&&Number.isFinite(minLng)?{lng:(minLng+maxLng)/2,lat:(minLat+maxLat)/2}:point;
+
         map=new Map({
           container:mapHostNode,
-          center:point,
-          zoom:initialCamera==='overview'?14:initialCamera==='follow'?19:16,
+          center:initialCamera==='overview'?routeCenter:point,
+          zoom:initialCamera==='overview'?14.2:initialCamera==='follow'?18.5:16,
           pitch:initialCamera==='overview'?30:initialCamera==='follow'?62:58,
           bearing:-25,
           interactive:false,
@@ -176,16 +184,18 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
         });
         mapInstance.current=map;
 
-        map.once('style.load',()=>{
-          if(abortController.signal.aborted||!map||!source)return;
-          map.setLayoutProperty('place-names','visibility','none');
+        const onStyleLoad=()=>{
+          if(abortController.signal.aborted||!map||!source||worldLayerRef.current)return;
+          try{map.setLayoutProperty('place-names','visibility','none');}catch{}
           const layer=world.createWorldLayer(source,MercatorCoordinate,initialData,controls,()=>{},origin);
           worldLayerRef.current=layer;
           map.addLayer(layer,'place-names');
           map.resize();
           map.triggerRepaint();
           setMapReady(true);
-        });
+        };
+        if(map.isStyleLoaded())onStyleLoad();
+        else map.once('style.load',onStyleLoad);
 
         if(typeof ResizeObserver!=='undefined'&&mapHostNode){
           const ro=new ResizeObserver(()=>{map?.resize();});
@@ -202,10 +212,12 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
             try{
               const fetched:NeighborhoodWorld=isAndroid()||isIOS()
                 ?await import('@/lib/native/maps').then(m=>m.loadNativeNeighborhood(area.x,area.y,abortController.signal))
-                :await fetch('/api/world?x='+area.x+'&y='+area.y,{signal:abortController.signal}).then(async r=>{
-                    if(!r.ok)throw new Error();
-                    return r.json() as Promise<NeighborhoodWorld>;
-                  });
+                :await fetch('/api/world?x='+area.x+'&y='+area.y,{signal:abortController.signal})
+                    .then(async r=>{if(!r.ok)throw new Error();return r.json() as Promise<NeighborhoodWorld>;})
+                    .catch(async()=>{
+                      const {loadNeighborhood}=await import('@/lib/geodata/service');
+                      return loadNeighborhood(area.x,area.y);
+                    });
               if(fetched&&!abortController.signal.aborted&&map){
                 const validated=world.validateWorld(fetched.data);
                 worldLayerRef.current?.replaceWorld(validated);
@@ -245,8 +257,25 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
     if(!controls3d.current)return;
     controls3d.current.mode=mapCameraMode(cameraMode);
     controls3d.current.revision++;
-    mapInstance.current?.triggerRepaint();
-  },[cameraMode]);
+    if(mapInstance.current){
+      const map=mapInstance.current;
+      if(cameraMode==='overview'){
+        const samples=shareActivity.samples;
+        let minLng=Infinity,maxLng=-Infinity,minLat=Infinity,maxLat=-Infinity;
+        for(const s of samples){minLng=Math.min(minLng,s.lng);maxLng=Math.max(maxLng,s.lng);minLat=Math.min(minLat,s.lat);maxLat=Math.max(maxLat,s.lat);}
+        if(samples.length&&Number.isFinite(minLng)){
+          map.jumpTo({center:[(minLng+maxLng)/2,(minLat+maxLat)/2],zoom:14.2,pitch:30});
+        }
+      }else if(cameraMode==='orbit'){
+        const pos=replay3d.current?.getMotion()||shareActivity.samples[0];
+        if(pos)map.jumpTo({center:[pos.lng,pos.lat],zoom:16,pitch:58});
+      }else if(cameraMode==='follow'){
+        const pos=replay3d.current?.getMotion()||shareActivity.samples[0];
+        if(pos)map.jumpTo({center:[pos.lng,pos.lat],zoom:18.5,pitch:62});
+      }
+      map.triggerRepaint();
+    }
+  },[cameraMode,shareActivity.samples]);
 
   // Continuous 3D animation / playback loop
   useEffect(()=>{

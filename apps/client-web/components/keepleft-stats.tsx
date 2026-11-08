@@ -1,6 +1,6 @@
 'use client';
-import {useEffect,useMemo,useState} from 'react';
-import {ArrowLeft,ChartNoAxesColumn,Compass,House,Footprints,Bike,PersonStanding} from 'lucide-react';
+import {useEffect,useMemo,useRef,useState} from 'react';
+import {ArrowLeft,ChartNoAxesColumn,Compass,House,Footprints,Bike,PersonStanding,ChevronDown,Check} from 'lucide-react';
 import {createActivityStore} from '@/lib/native/platform';
 import type {ActivitySummary} from '@/lib/tracking/storage';
 import {athleteStats} from '@/lib/tracking/athlete-stats';
@@ -16,6 +16,23 @@ export function KeepleftStats({onHome,onExplore}:{onHome?:()=>void;onExplore?:()
   const store=useMemo(()=>createActivityStore(),[]);
   const [activities,setActivities]=useState<ActivitySummary[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState('');
   const [period,setPeriod]=useState(7),[kind,setKind]=useState('all');
+  const [filterOpen,setFilterOpen]=useState(false);
+  const filterRef=useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    if(!filterOpen)return;
+    const handleDown=(e:MouseEvent|TouchEvent)=>{
+      if(filterRef.current&&!filterRef.current.contains(e.target as Node))setFilterOpen(false);
+    };
+    const handleKey=(e:KeyboardEvent)=>{if(e.key==='Escape')setFilterOpen(false);};
+    document.addEventListener('mousedown',handleDown);
+    document.addEventListener('touchstart',handleDown);
+    document.addEventListener('keydown',handleKey);
+    return ()=>{
+      document.removeEventListener('mousedown',handleDown);
+      document.removeEventListener('touchstart',handleDown);
+      document.removeEventListener('keydown',handleKey);
+    };
+  },[filterOpen]);
   useEffect(()=>{let alive=true;void store.list().then(items=>{if(alive)setActivities(items);}).catch(()=>{if(alive)setError('Stats could not load from this device.');}).finally(()=>{if(alive)setLoading(false);});return()=>{alive=false;};},[store]);
   const selected=useMemo(()=>statsPeriod(activities,period,kind,loading?new Date(2026,0,1):new Date()),[activities,period,kind,loading]);
   const data=useMemo(()=>athleteStats(selected.current,loading?new Date(2026,0,1):new Date()),[selected,loading]);
@@ -26,7 +43,43 @@ export function KeepleftStats({onHome,onExplore}:{onHome?:()=>void;onExplore?:()
   const breakdown=['run','walk','cycle'].map((type,index)=>({type,color:['#e33b63','#f3a1b5','#aeb2b7'][index],count:selected.current.filter(item=>(item.activityType||'run')===type).length}));
   let angle=0;const slices=breakdown.map(item=>{const start=angle;angle+=data.count?item.count/data.count*360:0;return `${item.color} ${start}deg ${angle}deg`;}).join(',');
   return <main className="kl-stats-page">
-    <header className="kl-stats-header">{onHome?<button type="button" className="kl-stats-back" onClick={onHome} aria-label="Back to home"><ArrowLeft/></button>:<a className="kl-stats-back" href="/" aria-label="Back to home"><ArrowLeft/></a>}<div><h1>YourLeft</h1><span className="kl-settings-eyebrow">Your movement matters</span></div><label className="kl-stats-filter"><span className="sr-only">Activity type</span><select value={kind} onChange={event=>setKind(event.target.value)}><option value="all">All activities</option><option value="run">Running</option><option value="walk">Walking</option><option value="cycle">Cycling</option></select></label></header>
+    <header className="kl-stats-header">
+      {onHome?<button type="button" className="kl-stats-back" onClick={onHome} aria-label="Back to home"><ArrowLeft/></button>:<a className="kl-stats-back" href="/" aria-label="Back to home"><ArrowLeft/></a>}
+      <div><h1>YourLeft</h1><span className="kl-settings-eyebrow">Your movement matters</span></div>
+      <div ref={filterRef} className="kl-stats-filter">
+        <button
+          type="button"
+          className="kl-stats-filter-btn"
+          aria-haspopup="listbox"
+          aria-expanded={filterOpen}
+          onClick={()=>setFilterOpen(open=>!open)}
+        >
+          <span>{kind==='run'?'Running':kind==='walk'?'Walking':kind==='cycle'?'Cycling':'All activities'}</span>
+          <ChevronDown className={`kl-stats-chevron${filterOpen?' kl-rotate-180':''}`} size={16}/>
+        </button>
+        {filterOpen&&(
+          <ul className="kl-stats-dropdown" role="listbox" aria-label="Filter activity type">
+            {[
+              {value:'all',label:'All activities'},
+              {value:'run',label:'Running'},
+              {value:'walk',label:'Walking'},
+              {value:'cycle',label:'Cycling'},
+            ].map(opt=>(
+              <li
+                key={opt.value}
+                role="option"
+                aria-selected={kind===opt.value}
+                className={`kl-stats-opt${kind===opt.value?' kl-stats-opt-selected':''}`}
+                onClick={()=>{setKind(opt.value);setFilterOpen(false);}}
+              >
+                <span className="kl-stats-opt-check">{kind===opt.value?<Check size={14}/>:null}</span>
+                <span>{opt.label}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </header>
     <div className="kl-period-tabs" role="group" aria-label="Stats period">{[{days:7,label:'7D'},{days:30,label:'1M'},{days:90,label:'3M'},{days:365,label:'1Y'}].map(item=><button key={item.days} type="button" aria-pressed={period===item.days} onClick={()=>setPeriod(item.days)}>{item.label}</button>)}</div>
     <div className="kl-stats-layout" aria-busy={loading}>
       <section className="kl-stats-panel kl-stats-distance" aria-labelledby="weekly-distance-title">

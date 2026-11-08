@@ -46,8 +46,16 @@ export async function createStoryScene(activity:SavedActivity):Promise<StoryScen
   };
   const drawOverlay=(seconds:number,metrics?:StoryMetric[])=>{
     if(disposed)return;overlayInk.clearRect(0,0,overlay.width,overlay.height);
-    overlayInk.save();overlayInk.scale(2,2);overlayInk.save();overlayInk.translate(108,0);overlayInk.scale(1.05,1.05);drawRouteSticker(overlayInk,route,seconds,false);overlayInk.restore();
-    const values=metricValues(metrics);drawMetrics(overlayInk,values,720,550,false);overlayInk.restore();
+    const values=metricValues(metrics);
+    overlayInk.save();overlayInk.scale(2,2);
+    const availableW=720-96,availableH=values.length?400:600;
+    const scale=Math.min(availableW/route.width,availableH/route.height);
+    const rw=route.width*scale,rh=route.height*scale;
+    const rx=48+(availableW-rw)/2,ry=36+(availableH-rh)/2;
+    overlayInk.save();overlayInk.translate(rx,ry);overlayInk.scale(scale,scale);
+    drawRouteSticker(overlayInk,route,seconds,false);overlayInk.restore();
+    if(values.length)drawMetrics(overlayInk,values,720,ry+rh+32,false);
+    overlayInk.restore();
   };
   const draw=(seconds:number,options:StoryOptions)=>{
     if(disposed)return;
@@ -84,8 +92,9 @@ export async function createStoryScene(activity:SavedActivity):Promise<StoryScen
     if(options.placement.rotation){
       ctx.rotate((options.placement.rotation*Math.PI)/180);
     }
-    ctx.translate(-rect.width/2,-rect.height/2);
-    ctx.scale(rect.width/480,rect.height/480);
+    const scaleFactor=(route.aspectRatio>=1?rect.width:rect.height)/380;
+    ctx.scale(scaleFactor,scaleFactor);
+    ctx.translate(-240,-240);
     drawRouteSticker(ctx,route,seconds,false);
     ctx.restore();
     const values=metricValues(options.metrics);

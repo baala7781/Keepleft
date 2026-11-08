@@ -41,8 +41,8 @@ export function drawRouteSticker(ctx:CanvasRenderingContext2D,route:RouteSticker
   const first=points[0];ctx.beginPath();ctx.arc(first.x,first.y,3.5,0,Math.PI*2);ctx.fillStyle='#e33b63';ctx.fill();ctx.beginPath();ctx.arc(first.x,first.y,1.5,0,Math.PI*2);ctx.fillStyle='#ffffff';ctx.fill();
   // A small, luminous glowing beacon with no black outline
   ctx.save();ctx.translate(tip.x,tip.y);
-  ctx.fillStyle='rgba(227,59,99,0.28)';ctx.beginPath();ctx.arc(0,0,7,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='#e33b63';ctx.beginPath();ctx.arc(0,0,3.8,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(0,0,1.5,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(227,59,99,0.28)';ctx.beginPath();ctx.arc(0,0,5.5,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#e33b63';ctx.beginPath();ctx.arc(0,0,3.0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(0,0,1.2,0,Math.PI*2);ctx.fill();
   ctx.restore();
 }
