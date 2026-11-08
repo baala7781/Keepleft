@@ -40,7 +40,7 @@ export class ReplayRuntime implements MotionSource {
     // is clearly non-running is enough to avoid harmful road snapping, while the
     // original activity label and recorded metrics stay untouched.
     const averageSpeed=activity.snapshot.elapsedMs>0?activity.snapshot.distanceM/(activity.snapshot.elapsedMs/1000):0;
-    this.roadAlignmentRecommended=this.activityType!=='cycle'&&averageSpeed<4.5;
+    this.roadAlignmentRecommended=this.activityType!=='cycle'&&averageSpeed<7.5;
     this.legacyTiming=!this.samples.every(p=>Number.isFinite(p.activeElapsedMs));
     let time=0,distance=0;
     this.samples.forEach((p,i)=>{

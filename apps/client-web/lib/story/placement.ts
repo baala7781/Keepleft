@@ -1,5 +1,5 @@
 export const STORY_WIDTH=720,STORY_HEIGHT=1280;
-export type RoutePlacement={x:number;y:number;size:number};
+export type RoutePlacement={x:number;y:number;size:number;rotation?:number};
 export const DEFAULT_PLACEMENT:Readonly<RoutePlacement>={x:360,y:650,size:580};
 const MARGIN=16,MIN_SIZE=160;
 const clamp=(value:number,min:number,max:number)=>Math.max(min,Math.min(max,value));
@@ -7,11 +7,18 @@ const clamp=(value:number,min:number,max:number)=>Math.max(min,Math.min(max,valu
 /** Coordinates belong to the exported photo, independent of CSS preview size or DPR. */
 export function constrainPlacement(value:RoutePlacement):RoutePlacement{
   const size=clamp(Number.isFinite(value.size)?value.size:DEFAULT_PLACEMENT.size,MIN_SIZE,STORY_WIDTH-2*MARGIN);
-  return {size,x:clamp(Number.isFinite(value.x)?value.x:DEFAULT_PLACEMENT.x,size/2+MARGIN,STORY_WIDTH-size/2-MARGIN),
-    y:clamp(Number.isFinite(value.y)?value.y:DEFAULT_PLACEMENT.y,size/2+MARGIN,STORY_HEIGHT-size/2-MARGIN)};
+  const rotation=Number.isFinite(value.rotation)?((value.rotation! % 360 + 540) % 360) - 180:undefined;
+  return {x:clamp(Number.isFinite(value.x)?value.x:DEFAULT_PLACEMENT.x,size/2+MARGIN,STORY_WIDTH-size/2-MARGIN),
+    y:clamp(Number.isFinite(value.y)?value.y:DEFAULT_PLACEMENT.y,size/2+MARGIN,STORY_HEIGHT-size/2-MARGIN),
+    size,
+    ...(rotation!==undefined?{rotation}:{})};
 }
-export function placementRect(value:RoutePlacement){
-  const p=constrainPlacement(value);return {left:p.x-p.size/2,top:p.y-p.size/2,width:p.size,height:p.size};
+export function placementRect(value:RoutePlacement,aspectRatio=1){
+  const p=constrainPlacement(value);
+  const ar=Math.max(0.1,Math.min(10,aspectRatio||1));
+  const w=ar>=1?p.size:p.size*ar;
+  const h=ar>=1?p.size/ar:p.size;
+  return {left:p.x-w/2,top:p.y-h/2,width:w,height:h};
 }
 export function movePlacement(start:RoutePlacement,dx:number,dy:number):RoutePlacement{
   return constrainPlacement({...start,x:start.x+dx,y:start.y+dy});
@@ -19,7 +26,14 @@ export function movePlacement(start:RoutePlacement,dx:number,dy:number):RoutePla
 /** Resize from the lower-right handle while keeping the opposite corner still. */
 export function resizePlacement(start:RoutePlacement,delta:number):RoutePlacement{
   const r=placementRect(start),max=Math.min(STORY_WIDTH-MARGIN-r.left,STORY_HEIGHT-MARGIN-r.top);
-  const size=clamp(r.width+delta,MIN_SIZE,max);return {x:r.left+size/2,y:r.top+size/2,size};
+  const size=clamp(r.width+delta,MIN_SIZE,max);return {...start,x:r.left+size/2,y:r.top+size/2,size};
+}
+export function rotatePlacement(start:RoutePlacement,angleDelta:number):RoutePlacement{
+  const current=start.rotation??0;
+  let next=(current+angleDelta)%360;
+  if(next>180)next-=360;
+  if(next<-180)next+=360;
+  return {...start,rotation:Math.round(next)};
 }
 export function previewDelta(dx:number,dy:number,bounds:{width:number;height:number}){
   return {x:bounds.width>0?dx*STORY_WIDTH/bounds.width:0,y:bounds.height>0?dy*STORY_HEIGHT/bounds.height:0};

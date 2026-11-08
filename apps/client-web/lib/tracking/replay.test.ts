@@ -109,7 +109,7 @@ describe('deterministic recorded-run replay',()=>{
     expect(record).toEqual(saved);
   });
   it('avoids road alignment for legacy fast activities mislabeled as runs',()=>{
-    const record=makeRecord();delete record.activityType;record.snapshot.distanceM=9000;record.snapshot.elapsedMs=1800000;
+    const record=makeRecord();delete record.activityType;record.snapshot.distanceM=15000;record.snapshot.elapsedMs=1800000;
     expect(new ReplayRuntime(record).roadAlignmentRecommended).toBe(false);
     record.snapshot.distanceM=5000;expect(new ReplayRuntime(record).roadAlignmentRecommended).toBe(true);
   });

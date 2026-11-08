@@ -67,6 +67,29 @@ export class RoutePresentation {
       for(const ring of f.polygon)for(let i=1;i<ring.length;i++)if(intersects(a,b,{x:ring[i-1][0],y:ring[i-1][1]},{x:ring[i][0],y:ring[i][1]}))return false;
     }return true;
   }
+  private outsideBuilding(p:XY):XY {
+    const candidates=new Set(this.largeBuildings),cx=Math.floor(p.x/64),cy=Math.floor(p.y/64);
+    for(let x=cx-1;x<=cx+1;x++)for(let y=cy-1;y<=cy+1;y++)for(const f of this.buildingGrid.get(cell(x,y))||[])candidates.add(f);
+    for(const f of candidates){
+      if(Number(f.properties.minHeight)>2.5||p.x<f.bounds.min.x||p.x>f.bounds.max.x||p.y<f.bounds.min.y||p.y>f.bounds.max.y)continue;
+      const isSolid=inside(p,f.polygon[0])&&!f.polygon.slice(1).some(h=>inside(p,h));
+      if(!isSolid)continue;
+      const ring=f.polygon[0];let closestPoint=p,minD=Infinity,pushVec={x:0,y:0};
+      for(let i=1;i<ring.length;i++){
+        const ax=ring[i-1][0],ay=ring[i-1][1],bx=ring[i][0],by=ring[i][1];
+        const dx=bx-ax,dy=by-ay,lenSq=dx*dx+dy*dy;if(lenSq<1e-6)continue;
+        const t=Math.max(0,Math.min(1,((p.x-ax)*dx+(p.y-ay)*dy)/lenSq));
+        const proj={x:ax+t*dx,y:ay+t*dy},d=distance(p,proj);
+        if(d<minD){minD=d;closestPoint=proj;const len=Math.hypot(dx,dy);pushVec={x:-dy/len,y:dx/len};}
+      }
+      const c1={x:closestPoint.x+pushVec.x*4.5,y:closestPoint.y+pushVec.y*4.5};
+      if(!inside(c1,ring))return c1;
+      const c2={x:closestPoint.x-pushVec.x*4.5,y:closestPoint.y-pushVec.y*4.5};
+      if(!inside(c2,ring))return c2;
+      return closestPoint;
+    }
+    return p;
+  }
   private match(p:XY,prior?:Match,direction?:XY,maxDistance=8):Match|undefined{
     const edges=new Set(this.longEdges),cx=Math.floor(p.x/32),cy=Math.floor(p.y/32);
     for(let x=cx-1;x<=cx+1;x++)for(let y=cy-1;y<=cy+1;y++)for(const e of this.grid.get(cell(x,y))||[])edges.add(e);
@@ -152,7 +175,16 @@ export class RoutePresentation {
     }return features;
   }
   trail(input:RoutePoint[],enabled=true):RoutePoint[]{
-    if(!enabled){this.tip=undefined;this.input=[];this.states=[];this.output=[];this.cached=[];return input.map(p=>({...p}));}
+    if(!enabled){
+      this.tip=undefined;this.input=[];this.states=[];this.output=[];this.cached=[];
+      return input.map(p=>{
+        const proj=this.frame.project(p);
+        const out=this.outsideBuilding(proj);
+        if(out.x===proj.x&&out.y===proj.y)return {...p};
+        const un=this.frame.unproject({...out,z:0});
+        return {...p,lng:un.lng,lat:un.lat};
+      });
+    }
     // Keep already matched history when the bounded replay window advances.
     // A stable sample key distinguishes repeated visits to the same coordinates.
     const first=input[0];
@@ -183,9 +215,9 @@ export class RoutePresentation {
       if(broken){prior=undefined;shown=undefined;}
       let matched=this.match(p,prior,previous&&!broken?{x:p.x-previous.x,y:p.y-previous.y}:undefined,this.matchRadius(point)),path:XY[]|undefined;
       if(matched&&prior&&!broken){path=this.connect(prior,matched,Math.min(120,Math.max(18,distance(previous!,p)*1.7+8)));if(!path)matched=undefined;}
-      let target=matched?.point||p;
-      if(matched&&shown&&!path&&!this.clear(shown,target)){matched=undefined;target=p;}
-      if(path&&matched){for(const via of path.slice(1))if(!shown||distance(shown,via)>.01){add(via);shown=via;}}
+      let target=this.outsideBuilding(matched?.point||p);
+      if(matched&&shown&&!path&&!this.clear(shown,target)){matched=undefined;target=this.outsideBuilding(p);}
+      if(path&&matched){for(const via of path.slice(1))if(!shown||distance(shown,via)>.01){const outVia=this.outsideBuilding(via);add(outVia);shown=outVia;}}
       // If matching is unsupported, retain the original point but do not draw
       // a confident straight connector through a mapped building. This is a
       // display discontinuity only: recording boundaries and totals stay intact.

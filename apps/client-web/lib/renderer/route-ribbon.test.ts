@@ -32,6 +32,6 @@ it('changes zoom width without rebuilding and clamps close/far widths',()=>{
   const mesh=ribbon.group.children[0] as Mesh,geometry=mesh.geometry;
   ribbon.setView(18,0);ribbon.setView(19,0);expect(mesh.geometry).toBe(geometry);
   ribbon.update([{lng:0,lat:0}],[]);expect(mesh.geometry).toBe(geometry);
-  expect(routeWidthM(24,0)).toBe(.18);expect(routeWidthM(8,0)).toBe(20);
-  ribbon.setView(15,0);expect(ribbon.group.visible).toBe(false);ribbon.dispose();
+  expect(routeWidthM(24,0)).toBe(.25);expect(routeWidthM(8,0)).toBe(30);
+  ribbon.setView(15,0);expect(ribbon.group.visible).toBe(true);ribbon.dispose();
 });

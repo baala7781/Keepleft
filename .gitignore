@@ -38,6 +38,7 @@ DerivedData/
 
 # Logs & Debug
 *.log
+*DRIFT_REPORT.md
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

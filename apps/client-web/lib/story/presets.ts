@@ -8,7 +8,7 @@ export const STORY_PRESETS:Record<StoryPreset,{label:string;ratio:string;width:n
 };
 
 /** Photo placement remains in portrait coordinates; each preset composes it in its own frame. */
-export function presetPlacementRect(value:RoutePlacement,preset:StoryPreset){
-  const rect=placementRect(value),scale=STORY_PRESETS[preset].height/STORY_HEIGHT;
+export function presetPlacementRect(value:RoutePlacement,preset:StoryPreset,aspectRatio=1){
+  const rect=placementRect(value,aspectRatio),scale=STORY_PRESETS[preset].height/STORY_HEIGHT;
   return {left:STORY_WIDTH/2+(rect.left-STORY_WIDTH/2)*scale,top:rect.top*scale,width:rect.width*scale,height:rect.height*scale};
 }

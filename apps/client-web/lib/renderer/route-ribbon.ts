@@ -24,7 +24,7 @@ export function ribbonGeometry(points:RoutePoint[],frame:LocalFrame){
   geometry.computeBoundingBox();if(positions.length){geometry.boundingBox!.expandByScalar(24);geometry.computeBoundingSphere();geometry.boundingSphere!.radius+=24;}
   return geometry;
 }
-export function routeWidthM(zoom:number,latitude:number){return Math.max(.18,Math.min(20,4.5*40075016.686*Math.cos(latitude*Math.PI/180)/(512*2**zoom)));}
+export function routeWidthM(zoom:number,latitude:number){return Math.max(.25,Math.min(30,6.5*40075016.686*Math.cos(latitude*Math.PI/180)/(512*2**zoom)));}
 /** Fixed slots keep the recorded prefix on the GPU. Only the changing tip (or
  * the changed suffix after a seek) is projected and uploaded again. */
 export class RibbonBuffer {
@@ -66,6 +66,7 @@ export class RibbonBuffer {
 }
 function ribbonMaterial(color:string){
   return new THREE.ShaderMaterial({side:THREE.DoubleSide,depthTest:true,depthWrite:false,
+    polygonOffset:true,polygonOffsetFactor:-1.0,polygonOffsetUnits:-4.0,
     uniforms:{width:{value:1},color:{value:new THREE.Color(color)}},
     vertexShader:'attribute vec2 offset; uniform float width; void main(){ vec3 p=position+vec3(offset.x,0.0,offset.y)*width*0.5; gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0); }',
     fragmentShader:'uniform vec3 color; void main(){gl_FragColor=vec4(color,1.0);\n#include <colorspace_fragment>\n}',
@@ -92,6 +93,6 @@ export function createRouteRibbon(frame:LocalFrame){
     }
     gaps.geometry.dispose();gaps.geometry=ribbonGeometry(dashed,frame);
   };
-  const setView=(zoom:number,lat:number)=>{group.visible=zoom>=16.2;const width=routeWidthM(zoom,lat);edge.uniforms.width.value=width*1.45;ink.uniforms.width.value=width;gapInk.uniforms.width.value=width*.55;};
+  const setView=(zoom:number,lat:number)=>{group.visible=true;const width=routeWidthM(zoom,lat);edge.uniforms.width.value=width*1.45;ink.uniforms.width.value=width;gapInk.uniforms.width.value=width*.55;};
   return {group,update,setView,dispose(){casing.geometry.dispose();gaps.geometry.dispose();edge.dispose();ink.dispose();gapInk.dispose();}};
 }

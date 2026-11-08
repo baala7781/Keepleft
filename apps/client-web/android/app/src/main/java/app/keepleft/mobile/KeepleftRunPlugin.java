@@ -35,7 +35,8 @@ public class KeepleftRunPlugin extends Plugin {
     @PluginMethod public void beginStory(PluginCall call){videoWorker.execute(()->{
         try{if(video!=null)throw new IllegalStateException("Another export is running.");
             File directory=new File(getContext().getCacheDir(),"exports");if(!directory.exists()&&!directory.mkdirs())throw new IllegalStateException();
-            String id="story-"+java.util.UUID.randomUUID();video=new StoryEncoder(directory,id,call.getInt("width",720),call.getInt("height",1280));JSObject result=new JSObject();result.put("id",id);call.resolve(result);
+            int frames=call.getInt("frames",360);
+            String id="story-"+java.util.UUID.randomUUID();video=new StoryEncoder(directory,id,call.getInt("width",720),call.getInt("height",1280),frames);JSObject result=new JSObject();result.put("id",id);call.resolve(result);
         }catch(Exception e){call.reject("Could not start video export. Check free storage and retry.");}
     });}
     @PluginMethod public void storyFrame(PluginCall call){videoWorker.execute(()->{

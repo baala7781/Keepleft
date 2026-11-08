@@ -1283,7 +1283,8 @@ a {
   pointer-events: none;
 }
 
-.kl-route-placement button {
+.kl-route-placement button,
+.kl-route-placement .kl-route-move {
   position: absolute;
   pointer-events: auto;
   touch-action: none;
@@ -1293,20 +1294,95 @@ a {
 }
 
 .kl-route-move {
-  border: 0;
-  border-radius: 0;
+  border: 1px dashed rgba(227, 59, 99, 0.45);
+  border-radius: 8px;
   background: transparent;
   cursor: grab;
   padding: 0;
+  position: relative;
+  transition: border-color 0.15s ease;
+}
+
+.kl-route-move:hover {
+  border-color: rgba(227, 59, 99, 0.8);
 }
 
 .kl-route-move:active {
   cursor: grabbing;
+  border-color: #e33b63;
 }
 
 .kl-route-move:focus-visible {
   outline: 2px solid rgba(227,59,99,.8);
   outline-offset: 3px;
+}
+
+.kl-placement-corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #e33b63;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  padding: 0;
+}
+
+.kl-corner-tl { top: -6px; left: -6px; }
+.kl-corner-tr { top: -6px; right: -6px; }
+.kl-corner-bl { bottom: -6px; left: -6px; }
+.kl-corner-br {
+  bottom: -7px;
+  right: -7px;
+}
+
+.kl-resize-handle {
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.kl-resize-handle:active {
+  transform: scale(1.2);
+  background: #ff4d79;
+}
+
+.kl-placement-rotate-stalk {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  width: 1px;
+  height: 24px;
+  transform: translateX(-50%);
+  background: rgba(227, 59, 99, 0.6);
+  pointer-events: none;
+}
+
+.kl-placement-rotate-handle {
+  position: absolute;
+  top: -32px;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translateX(-50%);
+  background: #e33b63;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.6);
+  padding: 0;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.kl-placement-rotate-handle:active {
+  cursor: grabbing;
+  transform: translateX(-50%) scale(1.25);
+  background: #ff4d79;
 }
 
 .kl-placement-help {
@@ -1534,6 +1610,12 @@ a {
     max-height: 100dvh;
     height: 100dvh;
     border-radius: 0;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    --tw-ring-color: transparent !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+    --tw-ring-offset-shadow: 0 0 #0000 !important;
   }
 
   .kl-studio-top {

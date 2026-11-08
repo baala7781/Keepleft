@@ -88,7 +88,7 @@ export function createWorldLayer(
   const emptyWorld:WorldData={type:'FeatureCollection',features:[]};
   // Fast/cycling replays deliberately show recorded truth instead of snapping
   // to OSM. Avoid rebuilding their unused spatial index at world boundaries.
-  let routePresentation=new RoutePresentation(needsRoadPresentation?data:emptyWorld,worldFrame,needsRoadPresentation?forms:[]);
+  let routePresentation=new RoutePresentation(needsRoadPresentation?data:emptyWorld,worldFrame,forms);
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(6500,6500),new THREE.ShadowMaterial({opacity:0.48}));
   ground.rotation.x = -Math.PI/2;
   ground.position.y = 0.2;
@@ -112,9 +112,9 @@ export function createWorldLayer(
     void loadAthlete().then(value=>{if(removed){value.dispose();return;}athlete=value;value.group.visible=false;root.add(value.group);map?.triggerRepaint();}).catch(()=>{});
   };
   const dotMaterial=new THREE.ShaderMaterial({
-    uniforms:{size:{value:30}},transparent:true,depthTest:false,depthWrite:false,
+    uniforms:{size:{value:20}},transparent:true,depthTest:false,depthWrite:false,
     vertexShader:'uniform float size; void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);gl_PointSize=size;}',
-    fragmentShader:'void main(){float r=length(gl_PointCoord-vec2(0.5))*2.0;if(r>1.0)discard;vec3 red=vec3(0.98,0.20,0.32);float core=1.0-smoothstep(.29,.34,r);float ring=smoothstep(.29,.32,r)*(1.0-smoothstep(.39,.43,r));float halo=.35*pow(1.0-r,1.4);gl_FragColor=vec4(mix(red,vec3(1.0,.79,.82),ring),max(max(core,ring),halo));}',
+    fragmentShader:'void main(){float r=length(gl_PointCoord-vec2(0.5))*2.0;if(r>1.0)discard;float glow=pow(1.0-r,1.4);float solid=1.0-smoothstep(0.58,0.70,r);float whiteCenter=1.0-smoothstep(0.18,0.30,r);vec3 crimson=vec3(0.96,0.13,0.36);vec3 white=vec3(1.0,1.0,1.0);vec3 col=mix(crimson,white,whiteCenter*0.95);float alpha=clamp(max(solid,glow*0.85),0.0,1.0);gl_FragColor=vec4(col,alpha);}',
   });
   const locationDot=new THREE.Points(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute([0,0,0],3)),dotMaterial);
   locationDot.frustumCulled=false;locationDot.renderOrder=11;root.add(locationDot);
@@ -174,7 +174,7 @@ export function createWorldLayer(
       nextBuildings=createBuildingWorld(nextForms,nextWork,wake,prepared?.far);yield;
       yield;
       nextRoads=createRoadWorld(next,worldFrame,nextForms,nextWork,wake);yield;
-      const nextBlocks=cameraBlocks(nextForms),nextPresentation=needsRoadPresentation?new RoutePresentation(next,worldFrame,nextForms):routePresentation;yield;
+      const nextBlocks=cameraBlocks(nextForms),nextPresentation=new RoutePresentation(needsRoadPresentation?next:emptyWorld,worldFrame,nextForms);yield;
       // Reuse the forest GPU resources across neighborhood changes. Recreating
       // and disposing twelve instance pools caused a large upload on every swap.
       details.replaceWorld(nextForms,next,nextWork);
@@ -235,32 +235,29 @@ export function createWorldLayer(
         lastQuality=controls.quality;renderer.shadowMap.enabled=lastQuality==='high';renderer.shadowMap.needsUpdate=true;
       }
       const snapshot=runtime.getSnapshot(), motion=runtime.getMotion(controls.alignRoads!==false),sample=motion||(runtime.source==='demo'?sampleRoute(0):{...origin,heading:0});
-      const thirdPerson=controls.mode==='chase';
+      const thirdPerson=controls.mode==='chase'&&!controls.hideAthlete;
       if(thirdPerson)requestAthlete();
       runner.visible=!!motion&&thirdPerson&&!athlete;locationDot.visible=!!motion;
       if(athlete)athlete.group.visible=!!motion&&thirdPerson;
-      dotMaterial.uniforms.size.value=(thirdPerson?22:34)*map.getCanvas().width/Math.max(1,map.getCanvas().clientWidth);
-      if(now>=routeAt&&!routePending){
-        const routeStart=performance.now();
-        routeAt=now+200;
-        // Bike GPS in motion is already both dense and accurate. Snapping it to
-        // nearby OSM centre-lines can choose the wrong parallel/service road at
-        // segment restarts, creating a zigzag that is absent from the recording.
-        // Keep the bounded display smoothing, but present cycling on its recorded
-        // path. Walking/running retain conservative road alignment.
-        const raw=motion?runtime.getTrail(runtime.source==='replay'||controls.alignRoads!==false):[];
+      const isReplay=runtime.source==='replay';
+      const dotPx = runtime.source==='gps'?22:(isReplay||controls.hideAthlete?19:18);
+      dotMaterial.uniforms.size.value=dotPx*Math.min(map.getCanvas().width/Math.max(1,map.getCanvas().clientWidth),2.0);
+      if(motion){
+        // In 3D Three route / replay, update the GPU ribbon buffer every frame directly
+        // so the route ribbon line is 100% in lockstep with the lead dot across all views (orbit, overview, follow).
+        const raw=runtime.getTrail(isReplay||controls.alignRoads!==false);
         const aligned=controls.alignRoads!==false&&runtime.activityType!=='cycle'&&runtime.roadAlignmentRecommended!==false&&runtime.source!=='demo'&&!runtime.isDemoReplay;
         const shown=runtime.source==='gps'?visualRoute(raw,worldFrame,runtime.activityType||'run'):raw;
-        const trail=routePresentation.trail(shown,aligned),gaps=routePresentation.gaps(raw,aligned),threeRoute=map.getZoom()>=16.2;
-        // The vector and Three routes are mutually exclusive by zoom. Updating
-        // both made replay pay for two complete line rebuilds every 200 ms.
-        if(threeRoute)ribbon.update(trail,gaps);
-        else {
+        const trail=routePresentation.trail(shown,aligned),gaps=routePresentation.gaps(raw,aligned);
+        ribbon.update(trail,gaps);
+        if(now>=routeAt&&!routePending){
+          const routeStart=performance.now();
+          routeAt=now+200;
           const lines=routeLines(trail);lines.features.push(...gaps);
           const source=map.getSource('activity-route') as GeoJSONSource|undefined;
           if(source){routePending=true;void source.setData(lines).catch(()=>{}).finally(()=>{routePending=false;});}
+          routeMs=performance.now()-routeStart;
         }
-        routeMs=performance.now()-routeStart;
       }
       const shown=routePresentation.position(sample,controls.alignRoads!==false&&runtime.activityType!=='cycle'&&runtime.roadAlignmentRecommended!==false&&runtime.source!=='demo'&&!runtime.isDemoReplay);
       const p=worldFrame.project(shown);
@@ -283,8 +280,8 @@ export function createWorldLayer(
       const breakPoint=motion?.breakBefore?`${sample.lng}/${sample.lat}`:'';
       const reset=!hasPosition||(!!breakPoint&&breakPoint!==lastBreakPoint)||Math.abs(snapshot.elapsedMs-lastReplayTime)>2000&&runtime.source==='replay';
       lastBreakPoint=breakPoint;
-      if(reset||runtime.source==='demo'||renderedPosition.distanceTo(motionTarget)>100)renderedPosition.copy(motionTarget);
-      else renderedPosition.lerp(motionTarget,1-Math.exp(-dt*(runtime.source==='replay'?6:activityProfiles[runtime.activityType||'run'].cameraFollowRate)));
+      if(reset||runtime.source==='demo'||isReplay||renderedPosition.distanceTo(motionTarget)>100)renderedPosition.copy(motionTarget);
+      else renderedPosition.lerp(motionTarget,1-Math.exp(-dt*activityProfiles[runtime.activityType||'run'].cameraFollowRate));
       hasPosition=true;
       runner.position.copy(renderedPosition);
       locationDot.position.copy(renderedPosition);

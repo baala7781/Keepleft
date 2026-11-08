@@ -1,7 +1,7 @@
 'use client';
 /* oxlint-disable next/no-img-element -- Export previews use short-lived blob URLs, which Next Image cannot optimize. */
 import {useEffect,useMemo,useRef,useState} from 'react';
-import {ImagePlus,Image,Play,Pause,Share2,X,ArrowLeft,RotateCcw,Copy,Download,Video} from 'lucide-react';
+import {ImagePlus,Image,Play,Pause,Share2,X,ArrowLeft,RotateCcw,Copy,Download,Video,Check} from 'lucide-react';
 import {Button} from './ui/button';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from './ui/dialog';
 import type {SavedActivity} from '@/lib/tracking/storage';
@@ -9,7 +9,7 @@ import {createStoryScene,type StoryScene,type StoryOptions,type StoryMetric} fro
 import {exportStory,NativeStory,type StoryExport} from '@/lib/story/export';
 import {exportSticker} from '@/lib/story/sticker-export';
 import {isAndroid,isIOS,NativeRun} from '@/lib/native/bridge';
-import {constrainPlacement,DEFAULT_PLACEMENT,type RoutePlacement} from '@/lib/story/placement';
+import {constrainPlacement,DEFAULT_PLACEMENT,rotatePlacement,type RoutePlacement} from '@/lib/story/placement';
 import {StoryPlacementControls} from './story-placement-controls';
 import {STORY_PRESETS,type StoryPreset} from '@/lib/story/presets';
 import {copyRoutePng,exportRoutePng} from '@/lib/story/png-export';
@@ -27,9 +27,16 @@ import manifest from '@/public/fixtures/madhyamaheshwar/manifest.json';
 
 const DEFAULT_CAPTION='Every step, part of my story.';
 
+const mapCameraMode = (mode: 'follow' | 'orbit' | 'overview'): import('@/lib/renderer/camera').CameraMode => {
+  if (mode === 'follow') return 'chase';
+  if (mode === 'overview') return 'free';
+  return 'orbit';
+};
+
 export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:()=>void}){
   const host=useRef<HTMLDivElement>(null),scene=useRef<StoryScene|undefined>(undefined),photo=useRef<ImageBitmap|undefined>(undefined);
-  const mapHost=useRef<HTMLDivElement>(null),mapInstance=useRef<MapLibreMap|null>(null),worldLayerRef=useRef<StreamingWorldLayer|null>(null);
+  const [mapHostNode,setMapHostNode]=useState<HTMLDivElement|null>(null);
+  const mapInstance=useRef<MapLibreMap|null>(null),worldLayerRef=useRef<StreamingWorldLayer|null>(null);
   const replay3d=useRef<StoryReplayRuntime|null>(null),controls3d=useRef<CameraControls|null>(null);
 
   const options=useRef<StoryOptions>({caption:DEFAULT_CAPTION,placement:{...DEFAULT_PLACEMENT},metrics:['distance','time','pace']});
@@ -39,7 +46,7 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
   useEffect(()=>{formatRef.current=format;},[format]);
 
   const [speed,setSpeed]=useState<Replay3DSpeed>(8);
-  const [cameraMode,setCameraMode]=useState<'follow'|'orbit'|'overview'>('follow');
+  const [cameraMode,setCameraMode]=useState<'orbit'|'overview'|'follow'>('orbit');
   const speedRef=useRef(speed),cameraModeRef=useRef(cameraMode);
   useEffect(()=>{speedRef.current=speed;},[speed]);
   useEffect(()=>{cameraModeRef.current=cameraMode;},[cameraMode]);
@@ -90,7 +97,7 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
 
   // 3D Miniature World Map Setup (for 3D Moment Video)
   useEffect(()=>{
-    if(format!=='video3d'||!mapHost.current||mapInstance.current)return;
+    if(format!=='video3d'||!mapHostNode||mapInstance.current)return;
     const abortController=new AbortController();
     let map:MapLibreMap|undefined;
     let source:StoryReplayRuntime|undefined;
@@ -136,12 +143,12 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
             )
           :(nearby?.data?world.validateWorld(nearby.data):{type:'FeatureCollection',features:[]});
 
-        if(abortController.signal.aborted||!mapHost.current)return;
+        if(abortController.signal.aborted||!mapHostNode)return;
         setWorkerUrl(mapWorkerUrl);
 
         const initialCamera=cameraModeRef.current;
         const controls:CameraControls={
-          mode:initialCamera==='overview'?'free':initialCamera,
+          mode:mapCameraMode(initialCamera),
           reducedMotion:false,
           revision:0,
           gesturing:false,
@@ -151,17 +158,18 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
           staticScene:false,
           alignRoads:true,
           worldTheme:'night',
+          hideAthlete:true,
         };
         controls3d.current=controls;
 
         map=new Map({
-          container:mapHost.current,
+          container:mapHostNode,
           center:point,
-          zoom:initialCamera==='overview'?14:16,
-          pitch:initialCamera==='overview'?30:58,
+          zoom:initialCamera==='overview'?14:initialCamera==='follow'?19:16,
+          pitch:initialCamera==='overview'?30:initialCamera==='follow'?62:58,
           bearing:-25,
           interactive:false,
-          pixelRatio:Math.min(window.devicePixelRatio||1,1.5),
+          pixelRatio:Math.min(window.devicePixelRatio||1,2.5),
           canvasContextAttributes:{antialias:true,preserveDrawingBuffer:true},
           attributionControl:{compact:true},
           style:mapStyle(window.location.origin,nearby,initialData),
@@ -174,9 +182,19 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
           const layer=world.createWorldLayer(source,MercatorCoordinate,initialData,controls,()=>{},origin);
           worldLayerRef.current=layer;
           map.addLayer(layer,'place-names');
-          requestAnimationFrame(()=>{map?.resize();});
+          map.resize();
+          map.triggerRepaint();
           setMapReady(true);
         });
+
+        if(typeof ResizeObserver!=='undefined'&&mapHostNode){
+          const ro=new ResizeObserver(()=>{map?.resize();});
+          ro.observe(mapHostNode);
+          abortController.signal.addEventListener('abort',()=>ro.disconnect());
+        }
+        setTimeout(()=>map?.resize(),60);
+        setTimeout(()=>map?.resize(),220);
+        setTimeout(()=>map?.resize(),450);
 
         // Non-blocking background fetch for 3D buildings if not cached
         if(!nearby&&!isDemo){
@@ -188,9 +206,16 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
                     if(!r.ok)throw new Error();
                     return r.json() as Promise<NeighborhoodWorld>;
                   });
-              if(fetched&&!abortController.signal.aborted){
+              if(fetched&&!abortController.signal.aborted&&map){
                 const validated=world.validateWorld(fetched.data);
                 worldLayerRef.current?.replaceWorld(validated);
+                const atlas=map.getSource('atlas') as import('maplibre-gl').GeoJSONSource|undefined;
+                const roads=map.getSource('world-roads') as import('maplibre-gl').GeoJSONSource|undefined;
+                const labels=map.getSource('named-places') as import('maplibre-gl').GeoJSONSource|undefined;
+                if(atlas)void atlas.setData(validated as GeoJSON.FeatureCollection).catch(()=>{});
+                if(roads)void import('@/lib/geodata/roads').then(r=>roads.setData(r.roadContext(validated))).catch(()=>{});
+                if(labels)void import('@/lib/geodata/labels').then(l=>labels.setData(l.namedPlaces(validated))).catch(()=>{});
+                map.triggerRepaint();
                 if(!isAndroid())void saveWorld(fetched).catch(()=>{});
               }
             }catch{
@@ -213,15 +238,27 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
       source?.dispose();
       setMapReady(false);
     };
-  },[format,shareActivity]);
+  },[format,shareActivity,mapHostNode]);
 
   // Sync Camera Mode to 3D Map
   useEffect(()=>{
     if(!controls3d.current)return;
-    controls3d.current.mode=cameraMode==='overview'?'free':cameraMode;
+    controls3d.current.mode=mapCameraMode(cameraMode);
     controls3d.current.revision++;
     mapInstance.current?.triggerRepaint();
   },[cameraMode]);
+
+  // Continuous 3D animation / playback loop
+  useEffect(()=>{
+    if(format!=='video3d'||!playing||!mapReady)return;
+    let raf=0;
+    const loop=()=>{
+      mapInstance.current?.triggerRepaint();
+      raf=requestAnimationFrame(loop);
+    };
+    raf=requestAnimationFrame(loop);
+    return ()=>cancelAnimationFrame(raf);
+  },[format,playing,mapReady]);
 
   // Sync Speed to 3D Replay
   useEffect(()=>{
@@ -297,7 +334,15 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
           controller.signal,
           setProgress,
           NativeStory,
-          ()=>mapInstance.current?.triggerRepaint()
+          ()=>new Promise<void>(resolve=>{
+            const map=mapInstance.current;
+            if(!map){resolve();return;}
+            let done=false;
+            const finish=()=>{if(!done){done=true;resolve();}};
+            map.once('render',finish);
+            map.triggerRepaint();
+            setTimeout(finish,60);
+          })
         ));
       }
     }catch(e){
@@ -368,7 +413,7 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
 
   return (
     <Dialog open onOpenChange={open=>{if(!open&&!busy)onClose();}}>
-      <DialogContent className="kl-studio" showCloseButton={false}>
+      <DialogContent className="kl-studio border-none ring-0 shadow-none outline-none" showCloseButton={false}>
         <header className="kl-studio-top">
           <div>
             <DialogTitle>Share your run</DialogTitle>
@@ -388,7 +433,7 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
             {/* 3D Map View Host */}
             {format==='video3d'&&(
               <>
-                <div ref={mapHost} className="kl-3d-map-host" hidden={!!videoUrl}/>
+                <div ref={setMapHostNode} className="kl-3d-map-host" hidden={!!videoUrl}/>
                 {!mapReady&&!videoUrl&&(
                   <output className="kl-3d-loading-overlay" aria-label="Loading 3D world">
                     <div className="kl-3d-spinner"/>
@@ -408,7 +453,7 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
 
             {/* Photo placement drag handles (Photo mode only) */}
             {ready&&format==='photo'&&hasPhoto&&!busy&&!result&&(
-              <StoryPlacementControls value={placement} preset={preset} onChange={placeRoute}/>
+              <StoryPlacementControls value={placement} preset={preset} aspectRatio={scene.current?.aspectRatio} onChange={placeRoute}/>
             )}
 
             {/* Exported Result View */}
@@ -499,7 +544,7 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
                 {/* 3D Camera Mode Selector */}
                 <fieldset className="kl-share-presets">
                   <legend>Camera view</legend>
-                  {(['follow','orbit','overview'] as const).map(mode=>(
+                  {(['orbit','overview','follow'] as const).map(mode=>(
                     <button
                       key={mode}
                       type="button"
@@ -507,7 +552,7 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
                       disabled={busy}
                       onClick={()=>{setCameraMode(mode);setResult(null);}}
                     >
-                      {mode==='follow'?'Follow':mode==='orbit'?'360° Orbit':'Overview'}
+                      {mode==='orbit'?'360° Orbit':mode==='overview'?'Overview':'Follow'}
                     </button>
                   ))}
                 </fieldset>
@@ -556,11 +601,11 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
                 {hasPhoto&&(
                   <>
                     <label className="kl-route-size">
-                      Route size
+                      Route size ({Math.round(placement.size)}px)
                       <input type="range" min="160" max="700" step="10" value={placement.size} disabled={busy} onChange={event=>placeRoute(constrainPlacement({...placement,size:Number(event.target.value)}))}/>
                     </label>
                     <div className="kl-placement-help">
-                      <p>Drag the route itself to place it. Pinch or use Route size to enlarge it.</p>
+                      <p>Drag the route to position anywhere on your photo. Drag the corner to resize.</p>
                       <Button variant="ghost" disabled={busy} onClick={()=>placeRoute({...DEFAULT_PLACEMENT})}><RotateCcw size={14}/>Reset</Button>
                     </div>
                   </>
@@ -576,21 +621,27 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
             {format!=='sticker'&&(
               <fieldset className="kl-share-metrics">
                 <legend>Show with route</legend>
-                {(['distance','time','pace','date','location'] as StoryMetric[]).map(value=>(
-                  <label key={value}>
-                    <input
-                      type="checkbox"
-                      checked={metrics.includes(value)}
-                      disabled={busy}
-                      onChange={event=>{
-                        setMetrics(current=>event.target.checked?[...current,value]:current.filter(item=>item!==value));
-                        setResult(null);
-                        setCopied(false);
-                      }}
-                    />
-                    {value==='pace'&&activity.activityType==='cycle'?'speed':value}
-                  </label>
-                ))}
+                {(['distance','time','pace','date','location'] as StoryMetric[]).map(value=>{
+                  const isChecked=metrics.includes(value);
+                  const labelText=value==='pace'&&activity.activityType==='cycle'?'Speed':value==='pace'?'Pace':value.charAt(0).toUpperCase()+value.slice(1);
+                  return (
+                    <label key={value} className={`kl-metric-chip${isChecked?' kl-metric-chip-active':''}`}>
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={isChecked}
+                        disabled={busy}
+                        onChange={event=>{
+                          setMetrics(current=>event.target.checked?[...current,value]:current.filter(item=>item!==value));
+                          setResult(null);
+                          setCopied(false);
+                        }}
+                      />
+                      {isChecked&&<Check className="kl-metric-check" aria-hidden="true"/>}
+                      <span>{labelText}</span>
+                    </label>
+                  );
+                })}
               </fieldset>
             )}
 

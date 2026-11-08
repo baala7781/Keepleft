@@ -20,12 +20,12 @@ final class StoryEncoder {
     private boolean started,closed;
     private int track,frames;
     private final MediaCodec.BufferInfo info=new MediaCodec.BufferInfo();
-    private final int width,height;
+    private final int width,height,totalFrames;
     private final int[] pixels;
     private final byte[] yRow,uRow,vRow;
-    StoryEncoder(File directory,String id,int width,int height) throws Exception {
+    StoryEncoder(File directory,String id,int width,int height,int totalFrames) throws Exception {
         if(width!=720||(height!=720&&height!=900&&height!=1280))throw new IllegalArgumentException("Unsupported export dimensions.");
-        this.width=width;this.height=height;pixels=new int[width*height];
+        this.width=width;this.height=height;this.totalFrames=Math.max(30,Math.min(1800,totalFrames));pixels=new int[width*height];
         yRow=new byte[width];uRow=new byte[width/2];vRow=new byte[width/2];
         this.id=id;file=new File(directory,id+".mp4");
         try{
@@ -40,7 +40,7 @@ final class StoryEncoder {
         }catch(Exception e){abort();throw e;}
     }
     void frame(int index,String jpeg) throws Exception {
-        if(closed||index!=frames||index>=360||jpeg.length()>4000000)throw new IllegalStateException("Invalid video frame.");
+        if(closed||index!=frames||index>=totalFrames||jpeg.length()>4000000)throw new IllegalStateException("Invalid video frame.");
         byte[] bytes=Base64.decode(jpeg,Base64.DEFAULT);Bitmap bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.length);
         if(bitmap==null)throw new IllegalStateException("Could not read video frame.");
         try{if(bitmap.getWidth()!=width||bitmap.getHeight()!=height)throw new IllegalStateException("Invalid frame size.");bitmap.getPixels(pixels,0,width,0,0,width,height);}finally{bitmap.recycle();}
@@ -81,7 +81,7 @@ final class StoryEncoder {
         return false;
     }
     void finish() throws Exception {
-        if(closed||frames!=360)throw new IllegalStateException("Video frames are incomplete.");
+        if(closed||frames!=totalFrames)throw new IllegalStateException("Video frames are incomplete.");
         long deadline=System.nanoTime()+15000000000L;int input;
         while((input=codec.dequeueInputBuffer(10000))<0){drain(false);if(System.nanoTime()>deadline)throw new IllegalStateException("Video encoder stalled.");}
         codec.queueInputBuffer(input,0,0,frames*1000000L/30,MediaCodec.BUFFER_FLAG_END_OF_STREAM);

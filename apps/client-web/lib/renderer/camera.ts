@@ -22,7 +22,7 @@ export function turnToward(current:number,target:number,blend:number) {
 export type CameraMode='orbit'|'follow'|'free'|'chase';
 export type CameraAdjustment={lng:number;lat:number;bearing:number;zoom:number;pitch:number};
 export const neutralCamera=():CameraAdjustment=>({lng:0,lat:0,bearing:0,zoom:0,pitch:0});
-export type CameraControls={mode:CameraMode;reducedMotion:boolean;revision:number;gesturing:boolean;selected:boolean;adjustment:CameraAdjustment;quality:'battery'|'balanced'|'high';worldTheme?:import('./world-theme').WorldTheme;presentationHeading?:number;presentationPosition?:{lng:number;lat:number};suspended?:boolean;manualFraming?:boolean;resumeAt?:number;angleGesture?:boolean;alignRoads?:boolean;staticScene?:boolean;showcaseCenter?:{lng:number;lat:number}};
+export type CameraControls={mode:CameraMode;reducedMotion:boolean;revision:number;gesturing:boolean;selected:boolean;adjustment:CameraAdjustment;quality:'battery'|'balanced'|'high';worldTheme?:import('./world-theme').WorldTheme;presentationHeading?:number;presentationPosition?:{lng:number;lat:number};suspended?:boolean;manualFraming?:boolean;resumeAt?:number;angleGesture?:boolean;alignRoads?:boolean;staticScene?:boolean;showcaseCenter?:{lng:number;lat:number};hideAthlete?:boolean};
 export type CameraPose={center:{lng:number;lat:number};bearing:number;zoom:number;pitch:number};
 export function baseCamera(mode:CameraMode,point:{lng:number;lat:number;heading:number},origin:{lng:number;lat:number},width:number,height:number):CameraPose {
   if(mode==='chase')return chaseCamera(point,height);

@@ -7,7 +7,7 @@ import {displayPlace} from '../geodata/display-place';
 export {STORY_WIDTH,STORY_HEIGHT} from './placement';
 export type StoryMetric='distance'|'time'|'pace'|'date'|'location';
 export type StoryOptions={photo?:ImageBitmap;caption:string;placement:RoutePlacement;metrics?:StoryMetric[];preset?:StoryPreset};
-export type StoryScene={canvas:HTMLCanvasElement;sticker:HTMLCanvasElement;overlay:HTMLCanvasElement;drawSticker:(seconds:number)=>void;drawOverlay:(seconds:number,metrics?:StoryMetric[])=>void;draw:(seconds:number,options:StoryOptions)=>void;dispose:()=>void};
+export type StoryScene={canvas:HTMLCanvasElement;sticker:HTMLCanvasElement;overlay:HTMLCanvasElement;aspectRatio:number;drawSticker:(seconds:number)=>void;drawOverlay:(seconds:number,metrics?:StoryMetric[])=>void;draw:(seconds:number,options:StoryOptions)=>void;dispose:()=>void};
 
 /** 2D route animation: no map tiles, buildings, location requests or GPU scene required. */
 export async function createStoryScene(activity:SavedActivity):Promise<StoryScene>{
@@ -15,6 +15,7 @@ export async function createStoryScene(activity:SavedActivity):Promise<StoryScen
   canvas.className='kl-photo-canvas';sticker.className='kl-gif-canvas';overlay.className='kl-png-canvas';
   canvas.width=720;canvas.height=1280;sticker.width=480;sticker.height=480;overlay.width=1440;overlay.height=1440;
   const ctx=canvas.getContext('2d',{alpha:false})!,ink=sticker.getContext('2d',{willReadFrequently:true})!,overlayInk=overlay.getContext('2d')!;let disposed=false;
+  const aspectRatio=route.aspectRatio;
   const drawSticker=(seconds:number)=>{if(!disposed)drawRouteSticker(ink,route,seconds);};
   const metricValues=(metrics:StoryMetric[]|undefined)=>{
     const shown=new Set(metrics??['distance','time','pace']);
@@ -55,11 +56,38 @@ export async function createStoryScene(activity:SavedActivity):Promise<StoryScen
     ctx.fillStyle='#0b0c0e';ctx.fillRect(0,0,720,height);
     if(options.photo){const p=options.photo,scale=Math.max(720/p.width,height/p.height);ctx.drawImage(p,(720-p.width*scale)/2,(height-p.height*scale)/2,p.width*scale,p.height*scale);}
     const shade=ctx.createLinearGradient(0,0,0,height);shade.addColorStop(0,'rgba(7,8,9,.58)');shade.addColorStop(.25,'rgba(7,8,9,0)');shade.addColorStop(.7,'rgba(7,8,9,.06)');shade.addColorStop(1,'rgba(7,8,9,.82)');ctx.fillStyle=shade;ctx.fillRect(0,0,720,height);
-    ctx.textBaseline='top';ctx.fillStyle='#fff';ctx.font='600 26px Arial';ctx.fillText('↖  Keepleft',44,52);
-    ctx.font='500 17px Arial';ctx.fillText(activity.source==='demo'?'DEMO · ROUTE IN MOTION':'MY ROUTE. IN MOTION.',44,94);
-    ctx.font=compact?'600 33px Arial':'600 44px Arial';const words=(options.caption.trim().slice(0,50)||'Every step, part of my story.').split(' ');
-    let line='',y=compact?128:147,lines=0;for(const word of words){const next=line?`${line} ${word}`:word;if(ctx.measureText(next).width>620&&line){ctx.fillText(line,44,y);y+=compact?38:52;line=word;lines++;if(compact&&lines>=2)break;}else line=next;}if(!compact||lines<2)ctx.fillText(line,44,y);
-    const rect=presetPlacementRect(options.placement,preset);ctx.save();ctx.translate(rect.left,rect.top);ctx.scale(rect.width/480,rect.height/480);drawRouteSticker(ctx,route,seconds,false);ctx.restore();
+    ctx.textBaseline='top';
+
+    // Premium Brand & Location / Date Header
+    ctx.fillStyle='#ffffff';
+    ctx.font='700 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText('YourLeft',44,48);
+    ctx.fillStyle='#e33b63';
+    ctx.beginPath();
+    ctx.arc(44+ctx.measureText('YourLeft').width+8,60,3.5,0,Math.PI*2);
+    ctx.fill();
+
+    const locationText=activity.placeName||(activity.source==='demo'?'Madhyamaheshwar Valley':'Route in Motion');
+    const activityDate=new Date(activity.startedAtMs||Date.now()).toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+    const metaText=`${locationText}  ·  ${activityDate}`;
+    ctx.font='500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle='rgba(255,255,255,0.72)';
+    ctx.fillText(metaText,44,82);
+
+    ctx.font=compact?'600 30px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif':'600 40px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle='#ffffff';
+    const words=(options.caption.trim().slice(0,50)||'Every step, part of my story.').split(' ');
+    let line='',y=compact?118:128,lines=0;for(const word of words){const next=line?`${line} ${word}`:word;if(ctx.measureText(next).width>620&&line){ctx.fillText(line,44,y);y+=compact?36:48;line=word;lines++;if(compact&&lines>=2)break;}else line=next;}if(!compact||lines<2)ctx.fillText(line,44,y);
+    const rect=presetPlacementRect(options.placement,preset,route.aspectRatio);
+    ctx.save();
+    ctx.translate(rect.left+rect.width/2,rect.top+rect.height/2);
+    if(options.placement.rotation){
+      ctx.rotate((options.placement.rotation*Math.PI)/180);
+    }
+    ctx.translate(-rect.width/2,-rect.height/2);
+    ctx.scale(rect.width/480,rect.height/480);
+    drawRouteSticker(ctx,route,seconds,false);
+    ctx.restore();
     const values=metricValues(options.metrics);
     if(values.length){
       const columns=Math.min(compact?2:3,values.length),rows=Math.ceil(values.length/columns),metricsHeight=rows*(compact?54:68);
@@ -68,5 +96,5 @@ export async function createStoryScene(activity:SavedActivity):Promise<StoryScen
     if(!compact&&!values.length){ctx.font='400 15px Arial';ctx.fillStyle='rgba(255,255,255,.8)';ctx.fillText('Recorded route · Time-compressed replay',44,1172);}
     if(route.at(seconds).gap){ctx.font='500 17px Arial';ctx.fillText('GPS gap · position held',44,compact?height-29:1210);}
   };
-  return {canvas,sticker,overlay,drawSticker,drawOverlay,draw,dispose(){disposed=true;route.dispose();canvas.remove();sticker.remove();overlay.remove();}};
+  return {canvas,sticker,overlay,aspectRatio,drawSticker,drawOverlay,draw,dispose(){disposed=true;route.dispose();canvas.remove();sticker.remove();overlay.remove();}};
 }
