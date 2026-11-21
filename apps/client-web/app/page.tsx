@@ -193,24 +193,21 @@ export default function MarketingLandingPage() {
             </p>
 
             {/* Dual Call to Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6">
               <a
                 href="#download"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl text-base font-bold bg-[#e33b63] hover:bg-[#c92f54] active:scale-[0.98] text-white shadow-xl shadow-[#e33b63]/25 transition-all group"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-lg text-sm font-semibold bg-[#e33b63] hover:bg-[#d62954] active:scale-[0.97] text-white shadow-lg shadow-[#e33b63]/20 transition-all"
               >
-                <Download className="w-5 h-5 text-white" />
-                <span>Download on Google Play</span>
-                <span className="text-xs font-normal opacity-80 px-2 py-0.5 rounded bg-black/20">
-                  Android Beta
-                </span>
+                <Download className="w-4.5 h-4.5" />
+                <span>Get Android Beta</span>
               </a>
 
               <Link
                 href="/run"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-4 rounded-xl text-base font-semibold bg-[#16181b] hover:bg-[#202327] border border-[#2e3236] text-[#f5f5f5] transition-all group hover:border-[#383b3f]"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-lg text-sm font-semibold bg-transparent hover:bg-[#ffffff]/5 border border-[#383b3f] hover:border-[#e33b63]/50 text-[#f5f5f5] transition-all group"
               >
-                <span>Explore the 3D Experience</span>
-                <ArrowRight className="w-4 h-4 text-[#e33b63] transition-transform group-hover:translate-x-1" />
+                <span>Explore 3D Demo</span>
+                <ArrowRight className="w-4 h-4 text-[#e33b63] group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </div>
 
@@ -230,77 +227,18 @@ export default function MarketingLandingPage() {
 
           {/* Hero Visual Composition */}
           <div className="mt-16 sm:mt-20 relative max-w-5xl mx-auto">
-            {/* Ambient Base Shadow */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0b0c0e] via-transparent to-transparent z-10 pointer-events-none" />
+            {/* Central Graphic Container — clean, no chrome */}
+            <div className="relative aspect-[16/9] sm:aspect-[2/1] rounded-2xl sm:rounded-3xl overflow-hidden bg-gradient-to-b from-[#1a1d20] to-[#0b0c0e] border border-[#2a2d31] shadow-2xl group">
+              {/* Ambient Base Shadow */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0b0c0e] via-transparent to-transparent z-5 pointer-events-none" />
 
-            {/* Main Stage Frame */}
-            <div className="relative rounded-2xl sm:rounded-3xl border border-[#2a2d31] bg-[#111214] p-3 sm:p-4 shadow-2xl overflow-hidden group">
-              {/* Browser/Window Header Pill */}
-              <div className="flex items-center justify-between px-3 py-2 border-b border-[#202326] mb-3 text-xs text-[#8d8d92]">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-[#202326]" />
-                  <span className="w-3 h-3 rounded-full bg-[#202326]" />
-                  <span className="w-3 h-3 rounded-full bg-[#202326]" />
-                  <span className="ml-2 font-mono text-[11px] text-[#6d7075]">
-                    yourleft.run · 3D miniature diorama
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 font-mono text-[11px] text-[#e33b63]">
-                  <span>LIVE REPLAY ENGINE</span>
-                </div>
-              </div>
-
-              {/* Central Graphic Container */}
-              <div className="relative aspect-[16/9] sm:aspect-[2/1] rounded-xl overflow-hidden bg-[#090a0c]">
-                {/* Official Store Artwork SVG Render */}
-                {/* oxlint-disable next/no-img-element */}
-                <img
-                  src="/yourleft-feature.svg"
-                  alt="YourLeft 3D route replayed through a dark stylized miniature landscape"
-                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]"
-                />
-
-                {/* Floating Telemetry Badge 1: Workout Stats (Top Left) */}
-                <div className="absolute top-4 left-4 sm:top-6 sm:left-6 p-3 sm:p-4 rounded-xl bg-[#0b0c0e]/85 backdrop-blur-md border border-[#2a2d31] shadow-xl text-left pointer-events-none">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-[#f3a1b5] uppercase tracking-wider mb-1">
-                    <Activity className="w-3.5 h-3.5 text-[#e33b63]" />
-                    Morning Run · 6.42 km
-                  </div>
-                  <div className="flex items-baseline gap-3">
-                    <span className="font-display text-xl sm:text-2xl font-bold text-white">
-                      30:48
-                    </span>
-                    <span className="text-xs text-[#8d8d92]">
-                      Pace <strong className="text-white font-medium">4:48 /km</strong>
-                    </span>
-                    <span className="text-xs text-[#8d8d92]">
-                      Elevation <strong className="text-white font-medium">+84 m</strong>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Floating Telemetry Badge 2: Director Camera Mode (Bottom Right) */}
-                <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 p-3 sm:p-4 rounded-xl bg-[#0b0c0e]/85 backdrop-blur-md border border-[#2a2d31] shadow-xl text-left pointer-events-none flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#1d1f22] flex items-center justify-center text-[#e33b63] border border-[#383b3f]">
-                    <Camera className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-[11px] font-semibold text-[#aaa9ac] uppercase tracking-wider">
-                      Camera Director
-                    </div>
-                    <div className="text-xs sm:text-sm font-medium text-white flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#e33b63]" />
-                      Follow Mode · 60 FPS
-                    </div>
-                  </div>
-                </div>
-
-                {/* Floating Telemetry Badge 3: Privacy Shield (Top Right) */}
-                <div className="hidden sm:flex absolute top-6 right-6 px-3 py-1.5 rounded-lg bg-[#0b0c0e]/85 backdrop-blur-md border border-[#2a2d31] shadow-xl items-center gap-2 text-xs text-[#f3a1b5] pointer-events-none">
-                  <Shield className="w-3.5 h-3.5 text-[#e33b63]" />
-                  <span>Start &amp; Finish Masked (200m)</span>
-                </div>
-              </div>
+              {/* Official Store Artwork SVG Render */}
+              {/* oxlint-disable next/no-img-element */}
+              <img
+                src="/yourleft-feature.svg"
+                alt="YourLeft 3D route replayed through a dark stylized miniature landscape"
+                className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.01]"
+              />
             </div>
           </div>
         </div>
