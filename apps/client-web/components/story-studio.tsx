@@ -4,11 +4,12 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import {ImagePlus,Image,Play,Pause,Share2,X,ArrowLeft,RotateCcw,Copy,Download,Video,Check} from 'lucide-react';
 import {Button} from './ui/button';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from './ui/dialog';
+import {ThemeToggle} from './theme-toggle';
 import type {SavedActivity} from '@/lib/tracking/storage';
 import {createStoryScene,type StoryScene,type StoryOptions,type StoryMetric} from '@/lib/story/scene';
 import {exportStory,NativeStory,type StoryExport} from '@/lib/story/export';
 import {exportSticker} from '@/lib/story/sticker-export';
-import {isAndroid,isIOS,NativeRun} from '@/lib/native/bridge';
+import {isAndroid} from '@/lib/native/bridge';
 import {constrainPlacement,DEFAULT_PLACEMENT,rotatePlacement,type RoutePlacement} from '@/lib/story/placement';
 import {StoryPlacementControls} from './story-placement-controls';
 import {STORY_PRESETS,type StoryPreset} from '@/lib/story/presets';
@@ -18,12 +19,13 @@ import {REPLAY_3D_SPEEDS,type Replay3DSpeed,export3DVideo,estimateReplayVideoDur
 import {neutralCamera,type CameraControls} from '@/lib/renderer/camera';
 import {mapStyle} from '@/lib/geodata/map-style';
 import {neighborhoodFor} from '@/lib/geodata/osm';
-import {readWorld,saveWorld} from '@/lib/geodata/world-archive';
+import {routeAreas,readCachedArea,fetchArea,mergeWorlds} from '@/lib/story/route-world';
 import type {NeighborhoodWorld} from '@/lib/geodata/service';
 import type {StreamingWorldLayer,WorldData} from '@/lib/renderer/world';
 import type {Map as MapLibreMap} from 'maplibre-gl';
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import manifest from '@/public/fixtures/madhyamaheshwar/manifest.json';
+import {useWorldTheme} from '@/hooks/use-world-theme';
 
 const DEFAULT_CAPTION='Every step, part of my story.';
 
@@ -34,6 +36,7 @@ const mapCameraMode = (mode: 'follow' | 'orbit' | 'overview'): import('@/lib/ren
 };
 
 export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:()=>void}){
+  const [theme]=useWorldTheme();
   const host=useRef<HTMLDivElement>(null),scene=useRef<StoryScene|undefined>(undefined),photo=useRef<ImageBitmap|undefined>(undefined);
   const [mapHostNode,setMapHostNode]=useState<HTMLDivElement|null>(null);
   const mapInstance=useRef<MapLibreMap|null>(null),worldLayerRef=useRef<StreamingWorldLayer|null>(null);
@@ -50,6 +53,14 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
   const speedRef=useRef(speed),cameraModeRef=useRef(cameraMode);
   useEffect(()=>{speedRef.current=speed;},[speed]);
   useEffect(()=>{cameraModeRef.current=cameraMode;},[cameraMode]);
+
+  // Sync theme changes to 3D world controls
+  useEffect(()=>{
+    if(!controls3d.current)return;
+    controls3d.current.worldTheme=theme;
+    controls3d.current.revision++;
+    mapInstance.current?.triggerRepaint();
+  },[theme]);
   const [mapReady,setMapReady]=useState(false);
 
   const [hideEnds,setHideEnds]=useState(true);
@@ -58,6 +69,9 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
   const [preset,setPreset]=useState<StoryPreset>('story');
   const [playing,setPlaying]=useState(true),[busy,setBusy]=useState(false),[progress,setProgress]=useState(0),[error,setError]=useState(''),[result,setResult]=useState<StoryExport|null>(null);
   const [copied,setCopied]=useState(false);
+  // Two steps: choose a format, then customise and export it. The preview stays mounted across both.
+  const [step,setStep]=useState<'format'|'customize'>('format');
+  const [worldNotice,setWorldNotice]=useState(''),[worldRetry,setWorldRetry]=useState(0);
   const abort=useRef<AbortController|null>(null),playRef=useRef(false),busyRef=useRef(false),photoGeneration=useRef(0),file=useRef<HTMLInputElement>(null);
 
   useEffect(()=>{playRef.current=playing;},[playing]);
@@ -118,19 +132,21 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
         const isDemo=shareActivity.source==='demo';
         const area=neighborhoodFor(position);
 
-        let nearby:NeighborhoodWorld|null=null;
+        // Every neighborhood along the route, from either local cache (Android SQLite and web IndexedDB).
+        const cachedWorlds:NeighborhoodWorld[]=[],missingAreas:ReturnType<typeof neighborhoodFor>[]=[];
         if(!isDemo){
-          // Instantly check local cache: Android SQLite or Web IndexedDB
-          const cached=isAndroid()
-            ?await NativeRun.getMap({key:area.key}).then(r=>r.world).catch(()=>null)
-            :await readWorld(area.key).catch(()=>null);
-          if(cached){
-            nearby=cached;
+          const areas=routeAreas(shareActivity.samples);
+          if(!areas.some(item=>item.key===area.key))areas.unshift(area);
+          for(const item of areas){
+            const cached=await readCachedArea(item.key);
+            if(cached)cachedWorlds.push(cached);else missingAreas.push(item);
           }
         }
+        const nearby=mergeWorlds(cachedWorlds);
+        setWorldNotice('');
 
         // Center origin directly on runner's coordinates (never manifest.origin for real activities)
-        const origin=nearby?.origin||(isDemo?manifest.origin:area.origin);
+        const origin=isDemo?manifest.origin:area.origin;
         const point=source.getMotion()||position||origin;
 
         const initialData:WorldData=isDemo
@@ -157,7 +173,7 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
           quality:'balanced',
           staticScene:false,
           alignRoads:true,
-          worldTheme:'night',
+          worldTheme:theme,
           hideAthlete:true,
         };
         controls3d.current=controls;
@@ -207,19 +223,17 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
         setTimeout(()=>map?.resize(),450);
 
         // Non-blocking background fetch for 3D buildings if not cached
-        if(!nearby&&!isDemo){
+        if(missingAreas.length&&!isDemo){
           void (async()=>{
-            try{
-              const fetched:NeighborhoodWorld=isAndroid()||isIOS()
-                ?await import('@/lib/native/maps').then(m=>m.loadNativeNeighborhood(area.x,area.y,abortController.signal))
-                :await fetch('/api/world?x='+area.x+'&y='+area.y,{signal:abortController.signal})
-                    .then(async r=>{if(!r.ok)throw new Error();return r.json() as Promise<NeighborhoodWorld>;})
-                    .catch(async()=>{
-                      const {loadNeighborhood}=await import('@/lib/geodata/service');
-                      return loadNeighborhood(area.x,area.y);
-                    });
-              if(fetched&&!abortController.signal.aborted&&map){
-                const validated=world.validateWorld(fetched.data);
+            const loaded=[...cachedWorlds];
+            let failed=0;
+            for(const item of missingAreas){
+              try{loaded.push(await fetchArea(item,abortController.signal));}
+              catch{if(abortController.signal.aborted)return;failed++;continue;}
+              const merged=mergeWorlds(loaded);
+              if(!merged||abortController.signal.aborted||!map)continue;
+              try{
+                const validated=world.validateWorld(merged.data);
                 worldLayerRef.current?.replaceWorld(validated);
                 const atlas=map.getSource('atlas') as import('maplibre-gl').GeoJSONSource|undefined;
                 const roads=map.getSource('world-roads') as import('maplibre-gl').GeoJSONSource|undefined;
@@ -228,11 +242,9 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
                 if(roads)void import('@/lib/geodata/roads').then(r=>roads.setData(r.roadContext(validated))).catch(()=>{});
                 if(labels)void import('@/lib/geodata/labels').then(l=>labels.setData(l.namedPlaces(validated))).catch(()=>{});
                 map.triggerRepaint();
-                if(!isAndroid())void saveWorld(fetched).catch(()=>{});
-              }
-            }catch{
-              // Gracefully keep baseline 3D world (route ribbon + runner model)
+              }catch{failed++;}
             }
+            if(failed&&!abortController.signal.aborted)setWorldNotice(loaded.length?'Some of the nearby map could not be loaded, so parts of the 3D world are missing.':'The nearby map could not be loaded, so buildings are not shown.');
           })();
         }
       }catch{
@@ -250,7 +262,7 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
       source?.dispose();
       setMapReady(false);
     };
-  },[format,shareActivity,mapHostNode]);
+  },[format,shareActivity,mapHostNode,worldRetry]);
 
   // Sync Camera Mode to 3D Map
   useEffect(()=>{
@@ -438,17 +450,18 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
     setCopied(false);
   };
 
-  const videoSec=estimateReplayVideoDuration(shareActivity.snapshot.elapsedMs,speed);
-
   return (
     <Dialog open onOpenChange={open=>{if(!open&&!busy)onClose();}}>
       <DialogContent className="kl-studio border-none ring-0 shadow-none outline-none" showCloseButton={false}>
         <header className="kl-studio-top">
           <div>
-            <DialogTitle>Share your run</DialogTitle>
-            <DialogDescription>Export your real-world 3D replay or route stickers.</DialogDescription>
+            <DialogTitle>Create post</DialogTitle>
+            <DialogDescription>Turn this run into a video, a sticker or a photo story.</DialogDescription>
           </div>
-          <Button variant="ghost" aria-label="Close share studio" disabled={busy} onClick={onClose}><X/></Button>
+          <div className="kl-studio-top-actions">
+            {format==='video3d'&&<ThemeToggle/>}
+            <Button variant="ghost" aria-label="Close share studio" disabled={busy} onClick={onClose}><X/></Button>
+          </div>
         </header>
 
         <div className="kl-studio-body">
@@ -485,6 +498,11 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
               <StoryPlacementControls value={placement} preset={preset} aspectRatio={scene.current?.aspectRatio} onChange={placeRoute}/>
             )}
 
+            {/* Play / pause sits on the preview it controls */}
+            {!videoUrl&&<Button variant="outline" className="kl-icon-btn kl-preview-toggle" aria-label={playing?'Pause preview':'Play preview'} disabled={busy||(format==='video3d'&&!mapReady)} onClick={()=>setPlaying(value=>!value)}>
+              {playing?<Pause/>:<Play/>}
+            </Button>}
+
             {/* Exported Result View */}
             {videoUrl&&(
               result?.extension==='gif'||result?.extension==='png'?(
@@ -497,7 +515,11 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
 
           {/* Share Settings & Formats */}
           <section className="kl-story-editor" aria-label="Share settings">
-            {/* Format Picker */}
+            {format==='video3d'&&worldNotice&&!busy&&<p className="kl-feedback" role="status">{worldNotice} <button type="button" className="kl-link" onClick={()=>setWorldRetry(value=>value+1)}>Retry</button></p>}
+
+            {/* Step 1: format picker */}
+            {step==='format'&&(<>
+            <p className="kl-studio-step">Step 1 of 2 · Choose a format</p>
             <fieldset className="kl-share-formats">
               <legend className="sr-only">Share format</legend>
 
@@ -508,8 +530,7 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
                 onClick={()=>{setFormat('video3d');setResult(null);setCopied(false);}}
               >
                 <Video aria-hidden="true"/>
-                3D Moment
-                <small>Real 3D video</small>
+                <span>3D Moment<small>Real 3D video</small></span>
               </button>
 
               <button
@@ -519,8 +540,7 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
                 onClick={()=>{setFormat('png');setResult(null);setCopied(false);}}
               >
                 <Image aria-hidden="true"/>
-                Copy PNG
-                <small>Transparent</small>
+                <span>Copy PNG<small>Transparent</small></span>
               </button>
 
               <button
@@ -530,8 +550,7 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
                 onClick={()=>{setFormat('photo');setResult(null);setCopied(false);}}
               >
                 <ImagePlus aria-hidden="true"/>
-                Photo Story
-                <small>On your photo</small>
+                <span>Photo Story<small>On your photo</small></span>
               </button>
 
               <button
@@ -541,20 +560,25 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
                 onClick={()=>{setFormat('sticker');setResult(null);setCopied(false);}}
               >
                 <Play aria-hidden="true"/>
-                Animated GIF
-                <small>Route sticker</small>
+                <span>Animated GIF<small>Route sticker</small></span>
               </button>
             </fieldset>
+            <p className="kl-share-copy">{format==='video3d'?'A video of your run through the 3D miniature world.':format==='photo'?'Your moving route on top of one of your photos.':format==='png'?'A transparent route image to paste over any photo.':'A transparent animated route for apps that accept GIF overlays.'}</p>
+            <Button className="kl-action" disabled={busy||(format==='video3d'&&!mapReady)} onClick={()=>setStep('customize')}>Continue</Button>
+            </>)}
+
+            {/* Step 2: options for the chosen format */}
+            {step==='customize'&&(<>
+            <div className="kl-studio-stepbar">
+              <Button variant="ghost" disabled={busy} onClick={()=>{setResult(null);setCopied(false);setError('');setStep('format');}}><ArrowLeft/>Change format</Button>
+              <span>Step 2 of 2 · {format==='video3d'?'3D Moment':format==='photo'?'Photo Story':format==='png'?'Transparent PNG':'Animated GIF'}</span>
+            </div>
 
             {/* Format-Specific Controls */}
             {format==='video3d'?(
               <>
-                <p className="kl-share-copy">
-                  Export the entire 3D moment in the real world as video, complete with terrain, buildings, and full workout telemetry.
-                </p>
-
                 {/* 3D Replay Speed Selector: 2x, 3x, 8x, 10x, 20x */}
-                <fieldset className="kl-share-presets">
+                <fieldset className="kl-share-presets kl-share-speeds">
                   <legend>Replay speed</legend>
                   {REPLAY_3D_SPEEDS.map(speedVal=>(
                     <button
@@ -581,7 +605,7 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
                       disabled={busy}
                       onClick={()=>{setCameraMode(mode);setResult(null);}}
                     >
-                      {mode==='orbit'?'360° Orbit':mode==='overview'?'Overview':'Follow'}
+                      {mode==='orbit'?'Orbit':mode==='overview'?'Overview':'Follow'}
                     </button>
                   ))}
                 </fieldset>
@@ -605,7 +629,6 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
               </>
             ):format==='photo'?(
               <>
-                <p className="kl-share-copy">Blend your moving route with a photo. Place it where it belongs, then export a short video.</p>
                 <fieldset className="kl-share-presets">
                   <legend>Video shape</legend>
                   {(Object.keys(STORY_PRESETS) as StoryPreset[]).map(value=>(
@@ -623,27 +646,31 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
                   ))}
                 </fieldset>
                 <input ref={file} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>void choosePhoto(e.target.files?.[0])}/>
-                <Button variant="outline" disabled={busy} onClick={()=>file.current?.click()}>
+                <Button variant="outline" className="kl-photo-pick" disabled={busy} onClick={()=>file.current?.click()}>
                   <ImagePlus/>{hasPhoto?'Change photo':'Choose your photo'}
                 </Button>
-                <label>Caption<input value={caption} maxLength={50} disabled={busy} onChange={e=>{setCaption(e.target.value);setResult(null);}}/></label>
+                <label className="kl-studio-field">Caption<input value={caption} maxLength={50} disabled={busy} onChange={e=>{setCaption(e.target.value);setResult(null);}}/></label>
                 {hasPhoto&&(
-                  <>
-                    <label className="kl-route-size">
-                      Route size ({Math.round(placement.size)}px)
-                      <input type="range" min="160" max="700" step="10" value={placement.size} disabled={busy} onChange={event=>placeRoute(constrainPlacement({...placement,size:Number(event.target.value)}))}/>
+                  <fieldset className="kl-studio-section">
+                    <legend>Route on photo</legend>
+                    <p className="kl-studio-hint">Drag it on the preview. Pinch, or use the corner handle, to resize and rotate.</p>
+                    {/* Single-pointer alternatives to the pinch and handle gestures. */}
+                    <label className="kl-studio-slider">
+                      <span>Size<output>{Math.round(placement.size)} px</output></span>
+                      <input type="range" min="160" max="688" step="4" value={placement.size} disabled={busy} onChange={event=>placeRoute(constrainPlacement({...placement,size:Number(event.target.value)}))}/>
                     </label>
-                    <div className="kl-placement-help">
-                      <p>Drag the route to position anywhere on your photo. Drag the corner to resize.</p>
-                      <Button variant="ghost" disabled={busy} onClick={()=>placeRoute({...DEFAULT_PLACEMENT})}><RotateCcw size={14}/>Reset</Button>
-                    </div>
-                  </>
+                    <label className="kl-studio-slider">
+                      <span>Rotation<output>{Math.round(placement.rotation??0)}°</output></span>
+                      <input type="range" min="-180" max="180" step="1" value={placement.rotation??0} disabled={busy} onChange={event=>placeRoute(constrainPlacement({...placement,rotation:Number(event.target.value)}))}/>
+                    </label>
+                    <Button variant="ghost" className="kl-route-reset" disabled={busy} onClick={()=>placeRoute({...DEFAULT_PLACEMENT})}><RotateCcw/>Reset position</Button>
+                  </fieldset>
                 )}
               </>
             ):format==='png'?(
-              <p className="kl-share-copy">A transparent route and stat strip. Copy it, then paste it directly over any photo or social post.</p>
+              <p className="kl-studio-hint">Copy it, then paste it over any photo or post.</p>
             ):(
-              <p className="kl-share-copy">A transparent moving route for apps that support animated image overlays.</p>
+              <p className="kl-studio-hint">For apps that accept animated stickers.</p>
             )}
 
             {/* Metrics Checklist */}
@@ -676,28 +703,26 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
 
             {/* Privacy Cloak */}
             <label className="kl-route-privacy">
-              <input
-                aria-label="Hide the first and last 200 metres from the shared route"
-                type="checkbox"
-                checked={hideEnds}
-                disabled={busy}
-                onChange={event=>{setHideEnds(event.target.checked);setResult(null);setCopied(false);}}
-              />
               <span>
                 <strong>Hide the start and finish</strong>
                 <small>{hideEnds?(privateRoute.applied?'First and last 200 m are removed from the shared route.':'This route is too short to mask safely; review it before sharing.'):'The complete route will be visible.'}</small>
               </span>
+              <input
+                aria-label="Hide the first and last 200 metres from the shared route"
+                type="checkbox"
+                role="switch"
+                className="kl-switch"
+                checked={hideEnds}
+                disabled={busy}
+                onChange={event=>{setHideEnds(event.target.checked);setResult(null);setCopied(false);}}
+              />
             </label>
-
-            {/* Play / Pause Preview Button */}
-            <Button variant="outline" disabled={busy||(format==='video3d'&&!mapReady)} onClick={()=>setPlaying(value=>!value)}>
-              {playing?<Pause/>:<Play/>}{playing?'Pause preview':'Play preview'}
-            </Button>
 
             <small>Created on this device. Review before sharing: even an unnamed route can reveal a familiar location.</small>
             {error&&<p className="kl-error" role="alert">{error}</p>}
 
-            {/* Action & Progress */}
+            {/* Action & Progress: pinned to the bottom of the scrolling panel */}
+            <div className="kl-studio-actions">
             {busy?(
               <output className="kl-export-progress">
                 <progress max="1" value={progress}/>
@@ -739,15 +764,8 @@ export function StoryStudio({activity,onClose}:{activity:SavedActivity;onClose:(
                 {format==='video3d'?'Export 3D Replay Video':format==='png'?'Prepare transparent PNG':format==='sticker'?'Export animated GIF':'Export Photo Story'}
               </Button>
             )}
-
-            <details className="kl-share-advanced">
-              <summary>Export details</summary>
-              <p>
-                3D Moment exports a {STORY_PRESETS[preset].ratio} video of your run through the real-world miniature diorama.
-                Estimated video length: ~{formatVideoDuration(videoSec)} at {speed}× speed.
-                Transparent PNG copies instantly with no background.
-              </p>
-            </details>
+            </div>
+            </>)}
           </section>
         </div>
       </DialogContent>

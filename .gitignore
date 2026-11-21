@@ -61,3 +61,58 @@ Thumbs.db
 Untitled/
 keepleft/
 
+*graphify-out
+*.downloads
+
+# Assets & Large Binary Files
+assets/
+*.blend
+*.blend1
+*.blend2
+*.fbx
+*.obj
+*.gltf
+*.glb
+*.usdz
+*.abc
+*.alembic
+*.dae
+*.stl
+*.ply
+*.usd
+
+# Generated/Build Assets
+**/dist-mobile/assets/
+**/dist/assets/
+**/build/assets/
+**/out/assets/
+
+# Cache & Temporary
+*.cache
+*.tmp
+*.temp
+.cache/
+tmp/
+temp/
+
+# IDE & Tools
+.cursor/
+.vscode/local
+.DS_Store
+.fleet/
+
+# Large media files (use CDN/Vercel Blob instead)
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.m4v
+*.avi
+*.flv
+
+# Package artifacts
+*.tar
+*.tar.gz
+*.zip
+*.rar
+*.7z

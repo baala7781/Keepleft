@@ -128,20 +128,8 @@ export class StoryReplayRuntime implements MotionSource {
 export function estimateReplayVideoDuration(durationMs: number, speed: Replay3DSpeed): number {
   if (!Number.isFinite(durationMs) || durationMs <= 0) return 15;
   const rawSeconds = Math.round((durationMs / 1000) / speed);
-  // For short runs (< 60s), use exact elapsed time divided by speed
-  if (durationMs <= 60000) {
-    return Math.max(3, Math.min(30, rawSeconds));
-  }
-  // For standard/long runs (1km, 5km, etc.), scale cleanly across social video lengths (10s - 30s)
-  // so every speed is distinct and exports in 5-10 seconds without memory bloat
-  const socialDurations: Record<Replay3DSpeed, number> = {
-    20: 10,
-    10: 14,
-    8: 18,
-    3: 24,
-    2: 30,
-  };
-  return socialDurations[speed] ?? 15;
+  // Cap to 5-30s for reliable export and memory: actual playback speed matches button label
+  return Math.max(5, Math.min(30, rawSeconds));
 }
 
 export function formatVideoDuration(seconds: number): string {
@@ -297,7 +285,12 @@ export async function exportNative3DVideo(
   // Bounded between 10s and 30s max for instant, reliable mobile export
   const totalFrames = Math.min(720, Math.round(videoDurationSec * fps));
 
-  const { id } = await bridge.beginStory({ width, height, frames: totalFrames });
+  let id: string;
+  try {
+    ({ id } = await bridge.beginStory({ width, height, frames: totalFrames }));
+  } catch (error) {
+    throw new Error(`3D export failed to start: ${error instanceof Error ? error.message : 'unknown error'}`);
+  }
   try {
     for (let i = 0; i < totalFrames; i++) {
       signal.throwIfAborted();
@@ -309,9 +302,18 @@ export async function exportNative3DVideo(
       }
 
       renderCompositeFrame(ctx, width, height, mapCanvas, activity, currentElapsedMs, totalDurationMs, options);
-      const jpeg = await canvasToJpeg(compositeCanvas, signal);
+      let jpeg: string;
+      try {
+        jpeg = await canvasToJpeg(compositeCanvas, signal);
+      } catch (error) {
+        throw new Error(`Frame ${i} encoding failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+      }
       signal.throwIfAborted();
-      await bridge.storyFrame({ id, index: i, jpeg });
+      try {
+        await bridge.storyFrame({ id, index: i, jpeg });
+      } catch (error) {
+        throw new Error(`3D export upload failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+      }
       onProgress((i + 1) / totalFrames);
     }
     signal.throwIfAborted();
@@ -371,7 +373,15 @@ export async function exportBrowser3DVideo(
   triggerRepaint?.();
   renderCompositeFrame(ctx, width, height, mapCanvas, activity, 0, totalDurationMs, options);
 
-  const stream = compositeCanvas.captureStream(fps);
+  let stream: MediaStream;
+  try {
+    stream = compositeCanvas.captureStream(fps);
+  } catch (error) {
+    if (compositeCanvas.parentElement) {
+      compositeCanvas.parentElement.removeChild(compositeCanvas);
+    }
+    throw new Error(`Could not start 3D video capture: ${error instanceof Error ? error.message : 'unknown error'}`);
+  }
   const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 5000000 });
   const chunks: BlobPart[] = [];
   let frameIndex = 0;
@@ -393,7 +403,7 @@ export async function exportBrowser3DVideo(
       recorder.onerror = () => {
         signal.removeEventListener('abort', abort);
         stop();
-        reject(new Error('The browser video encoder encountered an error.'));
+        reject(new Error(`3D video encoder error: ${recorder.error?.message || 'unknown'}`));
       };
       recorder.onstop = () => {
         signal.removeEventListener('abort', abort);

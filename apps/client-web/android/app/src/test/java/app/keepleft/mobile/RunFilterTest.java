@@ -41,6 +41,6 @@ public class RunFilterTest {
     }
     @Test public void accuracyRefinementDoesNotCountAsRunning(){
         RunFilter f=new RunFilter();f.ingest(fix(0,40,1000),1000);
-        RunFilter.Result r=f.ingest(fix(.0001,5,6000),6000);assertEquals("refinement",r.reason);assertEquals(0,r.distance,0);assertTrue(r.discontinuity);
+        RunFilter.Result r=f.ingest(fix(.0001,5,6000),6000);assertEquals("refinement",r.reason);assertEquals(0,r.distance,0);assertFalse(r.discontinuity);
     }
 }

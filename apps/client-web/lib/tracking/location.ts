@@ -89,7 +89,8 @@ export class GPSFilter {
     // A substantially better lock inside the old uncertainty radius is not a run.
     if(prior&&!gap&&prior.accuracyM>=f.accuracyM*2&&distance<=prior.accuracyM){
       this.anchor={...f};this.lastTimestamp=f.timestampMs;this.discontinuity=false;this.pending=undefined;this.speedEstimate=0;
-      return {accepted:true,reason:'refinement',distanceM:0,fix:{...f,breakBefore:true}};
+      // Moves the reference without cutting the line; GPS warm-up does this repeatedly.
+      return {accepted:true,reason:'refinement',distanceM:0,fix:{...f,breakBefore:false}};
     }
     const maximumSpeed=this.profile.maxSpeedMps;
     if(prior&&!gap&&distance/Math.max(delta,0.001)>maximumSpeed)return reject('jump','IMPOSSIBLE_SPEED');

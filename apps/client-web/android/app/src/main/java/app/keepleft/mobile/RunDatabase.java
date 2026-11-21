@@ -58,6 +58,12 @@ final class RunDatabase extends SQLiteOpenHelper {
             db.delete("points","run_id=?",new String[]{id});db.delete("runs","id=? AND complete=1",new String[]{id});db.setTransactionSuccessful();
         }finally{db.endTransaction();}
     }
+    /** Removes an unfinished run that never recorded a point. */
+    synchronized void discard(String id) {
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
+        try{db.delete("points","run_id=?",new String[]{id});db.delete("runs","id=? AND complete=0",new String[]{id});db.setTransactionSuccessful();}
+        finally{db.endTransaction();}
+    }
     synchronized void clearAll() {
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
         try{db.delete("points",null,null);db.delete("runs",null,null);db.delete("current_state",null,null);db.delete("maps",null,null);db.setTransactionSuccessful();}

@@ -48,12 +48,13 @@ export async function createStoryScene(activity:SavedActivity):Promise<StoryScen
     if(disposed)return;overlayInk.clearRect(0,0,overlay.width,overlay.height);
     const values=metricValues(metrics);
     overlayInk.save();overlayInk.scale(2,2);
-    const availableW=720-96,availableH=values.length?400:600;
-    const scale=Math.min(availableW/route.width,availableH/route.height);
-    const rw=route.width*scale,rh=route.height*scale;
+    const b=route.bounds,availableW=720-96,availableH=values.length?400:600;
+    const scale=Math.min(availableW/b.width,availableH/b.height,3);
+    const rw=b.width*scale,rh=b.height*scale;
     const rx=48+(availableW-rw)/2,ry=36+(availableH-rh)/2;
-    overlayInk.save();overlayInk.translate(rx,ry);overlayInk.scale(scale,scale);
-    drawRouteSticker(overlayInk,route,seconds,false);overlayInk.restore();
+    overlayInk.save();overlayInk.translate(rx,ry);overlayInk.scale(scale,scale);overlayInk.translate(-b.left,-b.top);
+    // Stroke weight stays constant however far the route is scaled to fit.
+    drawRouteSticker(overlayInk,route,seconds,false,{shadow:true,weight:1.4/scale});overlayInk.restore();
     if(values.length)drawMetrics(overlayInk,values,720,ry+rh+32,false);
     overlayInk.restore();
   };
@@ -95,7 +96,8 @@ export async function createStoryScene(activity:SavedActivity):Promise<StoryScen
     const scaleFactor=(route.aspectRatio>=1?rect.width:rect.height)/380;
     ctx.scale(scaleFactor,scaleFactor);
     ctx.translate(-240,-240);
-    drawRouteSticker(ctx,route,seconds,false);
+    // A small sticker keeps a readable line instead of shrinking it to a hairline.
+    drawRouteSticker(ctx,route,seconds,false,{shadow:true,weight:Math.max(1,.9/scaleFactor)});
     ctx.restore();
     const values=metricValues(options.metrics);
     if(values.length){

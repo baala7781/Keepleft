@@ -43,7 +43,7 @@ it('commits camera/theme after all map layers, keeps the scene, and removes its 
   expect(observed.scenes.at(-1)).toBe(scene);expect(runtime.getSnapshot()).toEqual(snapshot);
   expect(map.jumpTo).toHaveBeenCalledTimes(1);expect(map.setPixelRatio).not.toHaveBeenCalled();
   expect(loadAthlete).not.toHaveBeenCalled();
-  expect(map.setPaintProperty).toHaveBeenCalledWith('ground','background-color','#111416');
+  expect(map.setPaintProperty).toHaveBeenCalledWith('ground','background-color','#161b17');
   layer.onRemove!(map as unknown as MapLibreMap,gl);expect(handlers.has('render')).toBe(false);expect(observed.disposed).toBe(1);
   runtime.dispose();
 });

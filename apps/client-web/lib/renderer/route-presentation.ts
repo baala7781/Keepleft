@@ -14,6 +14,14 @@ const inside=(p:XY,ring:number[][])=>{let hit=false;for(let i=0,j=ring.length-1;
 }return hit;};
 const cross=(a:XY,b:XY,c:XY)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
 const intersects=(a:XY,b:XY,c:XY,d:XY)=>cross(a,b,c)*cross(a,b,d)<0&&cross(c,d,a)*cross(c,d,b)<0;
+/** Clearance past a wall when a display point is moved out of a footprint. */
+const EXIT_MARGIN_M=1.5;
+/** The dot holds its last outside position only while the new fix is this close. */
+const DOT_HOLD_M=25;
+/** Fixes deeper than this inside a footprint are not relocated (no invented route). */
+const MAX_EXIT_M=12;
+/** Display spikes shorter than this (a reversal of more than ~150 deg) are removed. */
+const SPIKE_M=4;
 
 /** Conservative local presentation only. No fetch, capture mutation, or missing-GPS repair. */
 export class RoutePresentation {
@@ -26,7 +34,8 @@ export class RoutePresentation {
   private cached:RoutePoint[]=[];
   private input:RoutePoint[]=[];
   private output:RoutePoint[]=[];
-  private states:{prior?:Match;previous?:XY;shown?:XY;length:number}[]=[];
+  private states:{prior?:Match;previous?:XY;shown?:XY;back?:XY;length:number}[]=[];
+  private links=new Map<Road,Map<Road,boolean>>();
   constructor(data:WorldData,private frame:LocalFrame,buildings:BuildingForm[]=[]){
     for(const f of buildings){
       if(Number(f.properties.minHeight)>2.5)continue;
@@ -37,7 +46,9 @@ export class RoutePresentation {
     let count=0;
     for(const f of data.features){
       if(f.properties.kind!=='road'||f.geometry.type!=='LineString'||f.properties.tunnel||f.properties.bridge||
-        ['motorway','motorway_link','trunk','trunk_link','construction','proposed'].includes(String(f.properties.highway))||
+        // Trunk roads (e.g. national highways through towns) are ordinary walkable
+        // streets in many countries; an explicit foot=no below still excludes them.
+        ['motorway','motorway_link','construction','proposed'].includes(String(f.properties.highway))||
         ['no','private'].includes(String(f.properties.foot)))continue;
       const points=(f.geometry.coordinates as Ring).map(([lng,lat])=>frame.project({lng,lat}));
       const road:Road={points,lengths:[0],nodes:new Map()};
@@ -67,43 +78,100 @@ export class RoutePresentation {
       for(const ring of f.polygon)for(let i=1;i<ring.length;i++)if(intersects(a,b,{x:ring[i-1][0],y:ring[i-1][1]},{x:ring[i][0],y:ring[i][1]}))return false;
     }return true;
   }
-  private outsideBuilding(p:XY):XY {
-    const candidates=new Set(this.largeBuildings),cx=Math.floor(p.x/64),cy=Math.floor(p.y/64);
-    for(let x=cx-1;x<=cx+1;x++)for(let y=cy-1;y<=cy+1;y++)for(const f of this.buildingGrid.get(cell(x,y))||[])candidates.add(f);
-    for(const f of candidates){
+  /** Ground-level footprints whose solid area contains `p`. A building is indexed in
+   * every cell its bounds touch, so the point's own cell is sufficient. */
+  private solidAt(p:XY):BuildingForm[]{
+    const out:BuildingForm[]=[];
+    for(const list of [this.largeBuildings,this.buildingGrid.get(cell(Math.floor(p.x/64),Math.floor(p.y/64)))||[]])for(const f of list){
       if(Number(f.properties.minHeight)>2.5||p.x<f.bounds.min.x||p.x>f.bounds.max.x||p.y<f.bounds.min.y||p.y>f.bounds.max.y)continue;
-      const isSolid=inside(p,f.polygon[0])&&!f.polygon.slice(1).some(h=>inside(p,h));
-      if(!isSolid)continue;
-      const ring=f.polygon[0];let closestPoint=p,minD=Infinity,pushVec={x:0,y:0};
-      for(let i=1;i<ring.length;i++){
-        const ax=ring[i-1][0],ay=ring[i-1][1],bx=ring[i][0],by=ring[i][1];
-        const dx=bx-ax,dy=by-ay,lenSq=dx*dx+dy*dy;if(lenSq<1e-6)continue;
-        const t=Math.max(0,Math.min(1,((p.x-ax)*dx+(p.y-ay)*dy)/lenSq));
-        const proj={x:ax+t*dx,y:ay+t*dy},d=distance(p,proj);
-        if(d<minD){minD=d;closestPoint=proj;const len=Math.hypot(dx,dy);pushVec={x:-dy/len,y:dx/len};}
-      }
-      const c1={x:closestPoint.x+pushVec.x*4.5,y:closestPoint.y+pushVec.y*4.5};
-      if(!inside(c1,ring))return c1;
-      const c2={x:closestPoint.x-pushVec.x*4.5,y:closestPoint.y-pushVec.y*4.5};
-      if(!inside(c2,ring))return c2;
-      return closestPoint;
+      if(inside(p,f.polygon[0])&&!f.polygon.slice(1).some(h=>inside(p,h)))out.push(f);
     }
+    return out;
+  }
+  /** Display-only: move a fix that lands inside a footprint to the nearest exterior
+   * point, just past the wall. The smallest move keeps neighbouring fixes on the
+   * same side; a fixed-length push sent them to different walls (zigzag) or into
+   * the next building. A fix with no nearby exit is left unchanged. */
+  private outsideBuilding(p:XY):XY {
+    const containing=this.solidAt(p);if(!containing.length)return p;
+    const exits:{point:XY;d:number}[]=[];
+    for(const f of containing)for(const ring of f.polygon)for(let i=1;i<ring.length;i++){
+      const ax=ring[i-1][0],ay=ring[i-1][1],dx=ring[i][0]-ax,dy=ring[i][1]-ay,lenSq=dx*dx+dy*dy;if(lenSq<1e-6)continue;
+      const t=Math.max(0,Math.min(1,((p.x-ax)*dx+(p.y-ay)*dy)/lenSq)),proj={x:ax+t*dx,y:ay+t*dy},d=distance(p,proj);
+      if(d>MAX_EXIT_M)continue;
+      if(d>1e-3)exits.push({point:{x:proj.x+(proj.x-p.x)/d*EXIT_MARGIN_M,y:proj.y+(proj.y-p.y)/d*EXIT_MARGIN_M},d});
+      else{const len=Math.sqrt(lenSq);for(const s of [1,-1])exits.push({point:{x:proj.x-dy/len*EXIT_MARGIN_M*s,y:proj.y+dx/len*EXIT_MARGIN_M*s},d});}
+    }
+    exits.sort((a,b)=>a.d-b.d);
+    for(const exit of exits)if(!this.solidAt(exit.point).length)return exit.point;
     return p;
   }
-  private match(p:XY,prior?:Match,direction?:XY,maxDistance=8):Match|undefined{
+  private linked(a:Road,b:Road){
+    if(a===b)return true;
+    let set=this.links.get(a);if(!set){set=new Map();this.links.set(a,set);}
+    let value=set.get(b);if(value===undefined){value=false;for(const key of a.nodes.keys())if(b.nodes.has(key)){value=true;break;}set.set(b,value);}
+    return value;
+  }
+  /** Road-lock hysteresis. Consumer GPS and OSM centrelines commonly disagree by
+   * 5-10 m. When the ordinary match fails right after a supported match, keep the
+   * same (or a directly connected) road if it is still the nearest plausible road
+   * in the travel direction. Unconnected competing roads cancel the hold. */
+  private hold(p:XY,prior:Match,direction:XY|undefined,radius:number):Match|undefined{
+    const edges=new Set(this.longEdges),cx=Math.floor(p.x/32),cy=Math.floor(p.y/32);
+    for(let x=cx-1;x<=cx+1;x++)for(let y=cy-1;y<=cy+1;y++)for(const e of this.grid.get(cell(x,y))||[])edges.add(e);
+    const moving=direction&&Math.hypot(direction.x,direction.y)>3;
+    let own:Match|undefined,other=Infinity;
+    for(const e of edges){
+      const dx=e.b.x-e.a.x,dy=e.b.y-e.a.y,len=Math.hypot(dx,dy),t=Math.max(0,Math.min(1,((p.x-e.a.x)*dx+(p.y-e.a.y)*dy)/(len*len)));
+      const point={x:e.a.x+dx*t,y:e.a.y+dy*t},d=distance(p,point);if(d>radius)continue;
+      // Same road may curve; a connected different road must run along the movement.
+      const align=moving?Math.abs((direction.x*dx+direction.y*dy)/(Math.hypot(direction.x,direction.y)*len)):1;
+      if(align<(e.road===prior.road?.35:.7))continue;
+      if(this.linked(prior.road,e.road)){if(!own||d<own.distance)own={road:e.road,index:e.index,point,along:e.road.lengths[e.index]+len*t,distance:d};}
+      else other=Math.min(other,d);
+    }
+    if(!own||other<own.distance+1.5||!this.clear(own.point,own.point))return;
+    return own;
+  }
+  /** Re-acquire a road after the lock was lost (segment start, recording gap). Requires
+   * real movement along the road and a clear winner: any unconnected road within 4 m
+   * of the best distance makes the choice ambiguous and the raw fix is kept. */
+  private acquire(p:XY,direction:XY|undefined,radius:number):Match|undefined{
+    if(!direction||Math.hypot(direction.x,direction.y)<=3)return;
     const edges=new Set(this.longEdges),cx=Math.floor(p.x/32),cy=Math.floor(p.y/32);
     for(let x=cx-1;x<=cx+1;x++)for(let y=cy-1;y<=cy+1;y++)for(const e of this.grid.get(cell(x,y))||[])edges.add(e);
     const candidates:Match[]=[];
     for(const e of edges){
       const dx=e.b.x-e.a.x,dy=e.b.y-e.a.y,len=Math.hypot(dx,dy),t=Math.max(0,Math.min(1,((p.x-e.a.x)*dx+(p.y-e.a.y)*dy)/(len*len)));
-      const point={x:e.a.x+dx*t,y:e.a.y+dy*t},d=distance(p,point);if(d>maxDistance)continue;
-      if(direction&&Math.hypot(direction.x,direction.y)>3&&Math.abs((direction.x*dx+direction.y*dy)/(Math.hypot(direction.x,direction.y)*len))<.35)continue;
-      if(!this.clear(point,point))continue;
+      const point={x:e.a.x+dx*t,y:e.a.y+dy*t},d=distance(p,point);if(d>radius)continue;
+      if(Math.abs((direction.x*dx+direction.y*dy)/(Math.hypot(direction.x,direction.y)*len))<.7)continue;
       candidates.push({road:e.road,index:e.index,point,along:e.road.lengths[e.index]+len*t,distance:d});
+    }
+    candidates.sort((a,b)=>a.distance-b.distance);const best=candidates[0];
+    if(!best||candidates.some(c=>!this.linked(best.road,c.road)&&c.distance<best.distance+4)||!this.clear(best.point,best.point))return;
+    return best;
+  }
+  private holdRadius(point:{accuracyM?:number}){return Math.min(25,Math.max(15,2.5*(Number(point.accuracyM)||8)));}
+  private match(p:XY,prior?:Match,direction?:XY,maxDistance=8):Match|undefined{
+    const edges=new Set(this.longEdges),cx=Math.floor(p.x/32),cy=Math.floor(p.y/32);
+    for(let x=cx-1;x<=cx+1;x++)for(let y=cy-1;y<=cy+1;y++)for(const e of this.grid.get(cell(x,y))||[])edges.add(e);
+    const candidates:(Match&{align:number})[]=[],moving=!!direction&&Math.hypot(direction.x,direction.y)>3;
+    for(const e of edges){
+      const dx=e.b.x-e.a.x,dy=e.b.y-e.a.y,len=Math.hypot(dx,dy),t=Math.max(0,Math.min(1,((p.x-e.a.x)*dx+(p.y-e.a.y)*dy)/(len*len)));
+      const point={x:e.a.x+dx*t,y:e.a.y+dy*t},d=distance(p,point);if(d>maxDistance)continue;
+      const align=moving?Math.abs((direction.x*dx+direction.y*dy)/(Math.hypot(direction.x,direction.y)*len)):1;
+      if(align<.35)continue;
+      if(!this.clear(point,point))continue;
+      candidates.push({road:e.road,index:e.index,point,along:e.road.lengths[e.index]+len*t,distance:d,align});
     }
     candidates.sort((a,b)=>a.distance-b.distance);let best=candidates[0];if(!best)return;
     // Keep an already supported road through sub-metre jitter, not a distant parallel street.
     const stable=prior&&candidates.find(c=>c.road===prior.road&&c.distance<=best.distance+1.5);if(stable)best=stable;
+    // Passing a junction: a crossing street can be nearer for a fix or two. Unless
+    // the movement actually turned towards it, stay on the road being travelled.
+    if(prior&&best.road!==prior.road&&best.align<.7){
+      const along=candidates.find(c=>c.road===prior.road&&c.align>=.9&&c.distance<=best.distance+4);if(along)best=along;
+    }
     const alternative=candidates.find(c=>c!==best&&distance(c.point,best.point)>4&&c.distance<best.distance+2);
     if(alternative&&best.road!==prior?.road)return;
     return best;
@@ -153,9 +221,16 @@ export class RoutePresentation {
     }
     return best;
   }
+  private dot?:XY;
+  /** Display-only dot position: road-aligned when enabled, and never inside a
+   * mapped building. A fix too deep to move out holds the last outside spot. */
   position(point:{lng:number;lat:number;accuracyM?:number},enabled=true){
-    if(!enabled)return point;const local=this.frame.project(point),matched=this.match(local,this.tip,undefined,this.matchRadius(point));
-    return matched?this.frame.unproject({...matched.point,z:0}):point;
+    const local=this.frame.project(point),matched=enabled?this.match(local,this.tip,undefined,this.matchRadius(point)):undefined;
+    let target=this.outsideBuilding(matched?.point||local);
+    if(this.solidAt(target).length){if(this.dot&&distance(this.dot,target)<=DOT_HOLD_M)target=this.dot;}
+    else this.dot=target;
+    if(!matched&&target.x===local.x&&target.y===local.y)return point;
+    const g=this.frame.unproject({...target,z:0});return {...point,lng:g.lng,lat:g.lat};
   }
   private matchRadius(point:{accuracyM?:number}){
     // GPS accuracy is a radius, not proof that the raw point is off-road. Let a
@@ -208,22 +283,41 @@ export class RoutePresentation {
     if(common===input.length&&input.length===this.input.length)return this.cached;
     const state=common?this.states[common-1]:undefined,out=this.output.slice(0,state?.length||0);
     this.states.length=common;
-    let prior=state?.prior,previous=state?.previous,shown=state?.shown;
-    const add=(p:XY,breakBefore=false)=>{const g=this.frame.unproject({...p,z:0});out.push({lng:g.lng,lat:g.lat,breakBefore});};
+    let prior=state?.prior,previous=state?.previous,shown=state?.shown,back=state?.back;
+    /** Appends a display vertex and returns whether it was drawn. Along-road GPS
+     * jitter can project a fix a few metres behind the previous one; drawing it
+     * makes a short spike. Such a small reversal is skipped (the line waits at the
+     * last vertex); a longer reversal such as a real U-turn is drawn. Only the
+     * incoming vertex is skipped, so the cached prefix never changes. */
+    const add=(p:XY,breakBefore=false)=>{
+      if(!breakBefore&&shown&&back){
+        const ab=distance(back,shown),bc=distance(shown,p);
+        if(ab>.01&&bc>.01&&bc<=SPIKE_M&&((shown.x-back.x)*(p.x-shown.x)+(shown.y-back.y)*(p.y-shown.y))<-.85*ab*bc)return false;
+      }
+      const g=this.frame.unproject({...p,z:0});out.push({lng:g.lng,lat:g.lat,breakBefore});
+      back=breakBefore?undefined:shown;shown=p;return true;
+    };
     for(const point of input.slice(common)){
       const p=this.frame.project(point),broken=!!point.breakBefore||!previous;
-      if(broken){prior=undefined;shown=undefined;}
-      let matched=this.match(p,prior,previous&&!broken?{x:p.x-previous.x,y:p.y-previous.y}:undefined,this.matchRadius(point)),path:XY[]|undefined;
+      if(broken){prior=undefined;shown=undefined;back=undefined;}
+      const direction=previous&&!broken?{x:p.x-previous.x,y:p.y-previous.y}:undefined;
+      let matched=this.match(p,prior,direction,this.matchRadius(point)),path:XY[]|undefined;
+      // A systematic GPS-to-map offset can last a whole street, so the lock has no
+      // count limit. Distance (holdRadius), direction and competing roads release it.
+      if(!matched&&!broken)matched=prior?this.hold(p,prior,direction,this.holdRadius(point)):this.acquire(p,direction,this.holdRadius(point));
       if(matched&&prior&&!broken){path=this.connect(prior,matched,Math.min(120,Math.max(18,distance(previous!,p)*1.7+8)));if(!path)matched=undefined;}
       let target=this.outsideBuilding(matched?.point||p);
       if(matched&&shown&&!path&&!this.clear(shown,target)){matched=undefined;target=this.outsideBuilding(p);}
-      if(path&&matched){for(const via of path.slice(1))if(!shown||distance(shown,via)>.01){const outVia=this.outsideBuilding(via);add(outVia);shown=outVia;}}
+      if(path&&matched){for(const via of path.slice(1))if(!shown||distance(shown,via)>.01)add(this.outsideBuilding(via));}
       // If matching is unsupported, retain the original point but do not draw
       // a confident straight connector through a mapped building. This is a
       // display discontinuity only: recording boundaries and totals stay intact.
-      else {add(target,broken||!!shown&&!this.clear(shown,target));shown=target;}
+      // A fix too deep inside a footprint to move out is not drawn; the line
+      // waits at its last outside vertex.
+      else if(!broken&&this.solidAt(target).length){/* hold */}
+      else add(target,broken||!!shown&&!this.clear(shown,target));
       previous=p;prior=matched;
-      this.states.push({prior,previous,shown,length:out.length});
+      this.states.push({prior,previous,shown,back,length:out.length});
     }
     this.input=input.map(p=>({...p}));this.output=out;
     this.tip=prior;this.cached=out.slice(-8192);if(this.cached[0])this.cached[0]={...this.cached[0],breakBefore:true};return this.cached;

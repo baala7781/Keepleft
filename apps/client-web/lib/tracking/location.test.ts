@@ -34,7 +34,7 @@ describe('GPS filtering',()=>{
   it('does not count an improving GPS lock as physical movement',()=>{
     const filter=new GPSFilter();filter.ingest(fix(epoch,17.421,25),epoch);
     const refined=filter.ingest(fix(epoch+1000,17.4211,5),epoch+1000);
-    expect(refined.reason).toBe('refinement');expect(refined.distanceM).toBe(0);expect(refined.fix?.breakBefore).toBe(true);
+    expect(refined.reason).toBe('refinement');expect(refined.distanceM).toBe(0);expect(refined.fix?.breakBefore).toBe(false);
     expect(filter.ingest(fix(epoch+6000,17.4212,5),epoch+6000).distanceM).toBeGreaterThan(10);
   });
   it('distinguishes strong, fair, weak and stale accuracy reports',()=>{
@@ -90,9 +90,10 @@ describe('device activity independent of rendering',()=>{
     wall=1000;provider.emit(fix(epoch+wall,17.421,60));r.start();
     expect(r.getSnapshot().status).toBe('ready');expect(r.getLocationHealth()).toMatchObject({accuracyM:60,quality:'lost'});
     wall=2000;provider.emit(fix(epoch+wall));r.start();expect(r.getSnapshot().status).toBe('recording');
-    wall=3000;provider.emit(fix(epoch+wall,17.422,80));
-    wall=5000;provider.emit(fix(epoch+wall,17.422));expect(r.getSnapshot().distanceM).toBe(0);
-    wall=10000;provider.emit(fix(epoch+wall,17.4221));expect(r.getSnapshot().distanceM).toBeGreaterThan(10);r.dispose();
+    // One coarse fix mid-run neither adds distance nor cuts the line.
+    wall=3000;provider.emit(fix(epoch+wall,17.422,80));expect(r.getSnapshot().distanceM).toBe(0);
+    wall=10000;provider.emit(fix(epoch+wall,17.4211));expect(r.getSnapshot().distanceM).toBeGreaterThan(10);
+    expect(r.getTrail().at(-1)?.breakBefore).toBeFalsy();r.dispose();
   });
   it('uses a coarse fresh fix to load the local map without treating it as trackable motion',()=>{
     vi.spyOn(Date,'now').mockReturnValue(epoch);vi.spyOn(performance,'now').mockReturnValue(0);

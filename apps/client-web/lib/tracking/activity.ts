@@ -57,6 +57,9 @@ export class ActivityRuntime {
   private mapFix?:RawFix;
   private filter=new GPSFilter();
   private previewFilter=new GPSFilter();
+  /** Start must use a fix from the last 3 s. An older preview point would draw a line from where the app was opened. */
+  private readonly startFixMaxAgeMs=3000;
+  private pendingStart?:ReturnType<typeof setTimeout>;
   private speedEstimator=new HybridSpeed(activityProfiles.run);
   private reportedAccuracy?:number;
   private reportedAt=-Infinity;
@@ -139,14 +142,17 @@ export class ActivityRuntime {
     if(f.accuracyM>MAX_TRACKING_ACCURACY_M) {
       decision('low_accuracy',false,'LOW_ACCURACY');
       this.locationState='locating';this.snapshot={...this.snapshot,speedMps:0};
-      if(this.snapshot.status==='recording'){this.filter.resetSegment();this.speedEstimator.reset();}
+      // One coarse fix no longer cuts the line; the filter's 20 s gap rule does that.
+      if(this.snapshot.status==='recording')this.speedEstimator.reset();
       this.locationMessage='Approximate location found. Loading its map; distance waits for accuracy within 50 m.';this.publish();return;
     }
     if(this.snapshot.status!=='recording') {
       const preview=this.previewFilter.ingest(f,now);
       if(!preview.accepted&&preview.reason!=='stationary'){this.locationState='locating';this.locationMessage='Unreliable GPS position ignored.';this.publish();return;}
-      if(preview.accepted)this.currentFix={...f};
+      // A stationary fix still shows where the user is now, so it refreshes the start position too.
+      if(preview.accepted||preview.reason==='stationary')this.currentFix={...f};
       this.latestReceipt=performance.now();this.locationState='ready';
+      if(this.pendingStart){clearTimeout(this.pendingStart);this.pendingStart=undefined;this.start();return;}
     } else {
       const receivedAt=performance.now(),measuredAt=receivedAt-Math.max(0,now-f.timestampMs);
       if(measuredAt<this.startedAt){decision('before_start',false,'STALE');return;} // Delayed fix from before start/resume.
@@ -231,7 +237,9 @@ export class ActivityRuntime {
   start(now = performance.now()) {
     if (this.snapshot.status !== 'ready' && this.snapshot.status !== 'complete') return;
     if(this.source==='gps') {
-      if(this.locationState!=='ready'||!this.currentFix||performance.now()-this.latestReceipt>MAX_FIX_AGE_MS||Date.now()-this.currentFix.timestampMs>MAX_FIX_AGE_MS) return;
+      if(this.pendingStart) return;
+      if(this.locationState!=='ready'||!this.currentFix||performance.now()-this.latestReceipt>MAX_FIX_AGE_MS) return;
+      if(Date.now()-this.currentFix.timestampMs>this.startFixMaxAgeMs) {this.waitForFreshStart();return;}
       this.samples=[];this.rawSamples=[];this.sampleDecisions=[];this.latestDerivedSpeed=0;this.filter=new GPSFilter(this.activityType);
       this.speedEstimator.reset();this.trailRevision++;
       this.activityId=crypto.randomUUID();this.activityStartedAt=Date.now();this.activityEndedAt=0;
@@ -243,6 +251,17 @@ export class ActivityRuntime {
     this.snapshot = { ...initialSnapshot, status:'recording' };
     this.update(now);
     if(this.source==='gps'&&this.currentFix)this.receiveFixForStart();
+  }
+  /** Start was tapped with an old position. Wait up to 3 s for a current fix, then begin from it. */
+  private waitForFreshStart() {
+    this.locationState='locating';this.locationMessage='Refreshing your position before the run starts…';
+    this.pendingStart=setTimeout(()=>{
+      this.pendingStart=undefined;
+      if(this.snapshot.status!=='ready')return;
+      this.locationState='timeout';this.locationMessage='No fresh GPS position yet. Move outdoors and tap Start again.';
+      this.publish();
+    },this.startFixMaxAgeMs);
+    this.publish();
   }
   private receiveFixForStart() {
     const fix=this.currentFix!;
@@ -293,6 +312,7 @@ export class ActivityRuntime {
     this.activityId='';
     this.saved=false;
     this.needsRecoveryFix=false;
+    clearTimeout(this.pendingStart);this.pendingStart=undefined;
     this.previewFilter=new GPSFilter(this.activityType);this.mapFix=undefined;this.reportedAccuracy=undefined;this.reportedAt=-Infinity;this.reportedTimestamp=0;
     this.samples=[];this.rawSamples=[];this.sampleDecisions=[];this.latestDerivedSpeed=0;this.filter=new GPSFilter(this.activityType);
     this.speedEstimator.reset();this.trailRevision++;

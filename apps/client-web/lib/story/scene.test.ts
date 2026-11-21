@@ -5,7 +5,7 @@ afterEach(()=>vi.unstubAllGlobals());
 it('draws a high resolution transparent overlay as vectors and removes owned canvases',async()=>{
   const contexts:Record<string,ReturnType<typeof vi.fn>>[]=[],canvases:{width:number;height:number;className:string;remove:ReturnType<typeof vi.fn>;getContext:()=>unknown}[]=[];
   vi.stubGlobal('document',{createElement:()=>{
-    const methods=['clearRect','save','restore','scale','translate','beginPath','moveTo','lineTo','stroke','arc','fill','fillRect','fillText','drawImage'];
+    const methods=['clearRect','save','restore','scale','translate','beginPath','moveTo','lineTo','quadraticCurveTo','stroke','arc','fill','fillRect','fillText','drawImage'];
     const ctx=Object.fromEntries(methods.map(name=>[name,vi.fn()]));ctx.measureText=vi.fn(()=>({width:40}));contexts.push(ctx);
     const canvas={width:0,height:0,className:'',remove:vi.fn(),getContext:()=>ctx};canvases.push(canvas);return canvas;
   }});

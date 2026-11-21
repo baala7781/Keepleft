@@ -28,6 +28,10 @@ export function resizePlacement(start:RoutePlacement,delta:number):RoutePlacemen
   const r=placementRect(start),max=Math.min(STORY_WIDTH-MARGIN-r.left,STORY_HEIGHT-MARGIN-r.top);
   const size=clamp(r.width+delta,MIN_SIZE,max);return {...start,x:r.left+size/2,y:r.top+size/2,size};
 }
+/** Scale about the centre, as pinch and the corner handle do; position is re-clamped to the photo. */
+export function scalePlacement(start:RoutePlacement,size:number):RoutePlacement{return constrainPlacement({...start,size});}
+/** A rotation within 4 degrees of upright or a quarter turn settles there. */
+export function snapRotation(degrees:number){for(const target of [-180,-90,0,90,180])if(Math.abs(degrees-target)<4)return target;return degrees;}
 export function rotatePlacement(start:RoutePlacement,angleDelta:number):RoutePlacement{
   const current=start.rotation??0;
   let next=(current+angleDelta)%360;

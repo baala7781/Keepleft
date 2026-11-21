@@ -26,11 +26,14 @@ export function roadProfile(p:WorldFeature['properties']):RoadProfile{
   return {kind,width,lanes,sidewalkLeft:left,sidewalkRight:right,markings:lanes>=2&&width>=5.5&&p.junction!=='roundabout',bridge:p.bridge===true,tunnel:p.tunnel===true,layer:clamp(Number(p.layer)||0,-5,5),widthSource:explicit?'mapped':inferred?'lanes':'class'};
 }
 
+/** Visual tier: main roads, ordinary streets and walking paths read as different surfaces. */
+export const roadTier=(kind:RoadClass)=>['motorway','trunk','primary','secondary','tertiary'].includes(kind)?'main':['residential','living_street','service','track'].includes(kind)?'street':'path';
+
 /** Cheap geographic context uses the same physical width as the near Three.js streets. */
 export function roadContext(data:WorldData):GeoJSON.FeatureCollection<GeoJSON.LineString>{
   return {type:'FeatureCollection',features:data.features.filter(f=>f.properties.kind==='road'&&f.geometry.type==='LineString').map(f=>{
     const profile=roadProfile(f.properties),points=f.geometry.coordinates as Ring;
     const latitude=points[0]?.[1]||0,meterPixels=512/(40075016.686*Math.max(.08,Math.cos(latitude*Math.PI/180)));
-    return {type:'Feature',id:f.id,properties:{tunnel:profile.tunnel,widthPixels:profile.width*meterPixels,edgePixels:(profile.width+profile.sidewalkLeft+profile.sidewalkRight)*meterPixels},geometry:{type:'LineString',coordinates:points}};
+    return {type:'Feature',id:f.id,properties:{tunnel:profile.tunnel,tier:roadTier(profile.kind),widthPixels:profile.width*meterPixels,edgePixels:(profile.width+profile.sidewalkLeft+profile.sidewalkRight)*meterPixels},geometry:{type:'LineString',coordinates:points}};
   })};
 }

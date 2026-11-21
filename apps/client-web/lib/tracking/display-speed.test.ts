@@ -14,3 +14,12 @@ it('reaches zero at a real stop and resets immediately on pause, stale GPS and n
   expect(speed.read({...sample(20000,10),status:'paused'})).toBe(0);
   expect(speed.read(sample(21000,10),false)).toBe(0);expect(speed.read(sample(0,0))).toBe(0);
 });
+it('holds the speed through a brief GPS dropout, then drops to zero if the signal stays lost',()=>{
+  const speed=new DisplaySpeed();let held=0;
+  for(let t=0;t<=10000;t+=1000)held=speed.read(sample(t,t*3/1000));
+  expect(held).toBeGreaterThan(2);
+  expect(speed.read(sample(11000,33),false)).toBe(held);
+  expect(speed.read(sample(14000,42),false)).toBe(held);
+  expect(speed.read(sample(17000,51),false)).toBe(0);
+  const recovered=speed.read(sample(18000,54));expect(recovered).toBeGreaterThanOrEqual(0);
+});

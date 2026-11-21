@@ -141,7 +141,7 @@ export function createRoadWorld(data:WorldData,frame:LocalFrame,forms:BuildingFo
     }catch(error){next.forEach(g=>g.dispose());stats.failures++;lastFailure=error instanceof RoadGeometryError?error.stage:'mesh';failed=true;group.visible=false;}
     lastX=x;lastY=y;lastQuality=quality;return true;
   };
-  const setTheme=(theme:WorldTheme)=>{const p=worldThemes[theme].palette;materials[0].color.set(p.road);materials[1].color.set(theme==='day'?'#555859':'#333638');materials[2].color.set(p.roadEdge);materials[3].color.set(theme==='day'?'#858780':'#92928b');};setTheme('day');
+  const setTheme=(theme:WorldTheme)=>{const p=worldThemes[theme].palette;materials[0].color.set(p.road);materials[1].color.set(theme==='day'?'#c6bfae':'#26292b');materials[2].color.set(p.roadEdge);materials[3].color.set(theme==='day'?p.roadCenter:'#92928b');};setTheme('day');
   const inheritPatch=(previous:THREE.Group)=>{
     // Transfer ownership: disposing the old world must not erase the visible road
     // while the new neighborhood's worker is still preparing its replacement.

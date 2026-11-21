@@ -19,7 +19,9 @@ export async function readMapResponse(response:Response):Promise<OSMResponse> {
   return JSON.parse(new TextDecoder().decode(merged));
 }
 
-/** Small public-data cache. No GPS samples, activity IDs or client identifiers are retained. */
+const CACHE_MAX_AREAS=6,CACHE_TTL_MS=7*24*60*60*1000;
+
+/** In-memory session cache for quick lookups. Persistent storage (IndexedDB/SQLite) holds all maps. No GPS samples, activity IDs or client identifiers are retained. */
 export async function loadNeighborhood(x:number,y:number,fetcher:typeof fetch=fetch):Promise<NeighborhoodWorld> {
   const area=neighborhood(x,y),hit=cache.get(area.key);
   if(hit&&hit.expires>Date.now())return hit.world;
@@ -27,7 +29,7 @@ export async function loadNeighborhood(x:number,y:number,fetcher:typeof fetch=fe
   if(pending.size>=2)throw new MapUnavailable('Map service is busy. Retry shortly.');
   const job=(async()=>{
     let data:WorldData|undefined,placeName:string|undefined;
-    for(const endpoint of ['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter']){
+    for(const endpoint of ['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass.openstreetmap.fr/api/interpreter']){
       try{
         const response=await fetcher(endpoint,{
           method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','User-Agent':'Keepleft-MVP/1.0'},
@@ -39,8 +41,8 @@ export async function loadNeighborhood(x:number,y:number,fetcher:typeof fetch=fe
     if(!data)throw new MapUnavailable('Nearby map service unavailable. Recording still works; retry when online.');
     if(!data.features.length)throw new MapUnavailable('No mapped features were found nearby. Recording still works.');
     const world:NeighborhoodWorld={...area,data,placeName,source:'OpenStreetMap',fetchedAt:new Date().toISOString()};
-    cache.delete(area.key);cache.set(area.key,{world,expires:Date.now()+15*60*1000});
-    while(cache.size>2)cache.delete(cache.keys().next().value!);
+    cache.delete(area.key);cache.set(area.key,{world,expires:Date.now()+CACHE_TTL_MS});
+    while(cache.size>CACHE_MAX_AREAS)cache.delete(cache.keys().next().value!);
     return world;
   })();
   pending.set(area.key,job);

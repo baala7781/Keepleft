@@ -35,6 +35,10 @@ final class RunEngine implements LocationListener {
     private double distance,speed;
     private RunFilter filter=new RunFilter(),previewFilter=new RunFilter();
     private final LocationSourceGate sourceGate=new LocationSourceGate();
+    private final StartLock startLock=new StartLock();
+    /** Recording, but waiting for a steady fix; the clock and route have not started. */
+    private boolean locking;
+    private long lockStarted;
     private RunFilter.Fix fix,mapFix;
     private boolean listening;
     private FusedLocationProviderClient fused;
@@ -89,24 +93,32 @@ final class RunEngine implements LocationListener {
         if(active())return;
         RunFilter selectedFilter=new RunFilter(selectedType);
         if(fix==null||System.currentTimeMillis()-fix.time>30000||fix.accuracy>50)throw new IllegalStateException("Wait for a fresh GPS position within 50 m before starting.");
-        activityType=selectedType;source="gps";id=UUID.randomUUID().toString();startedWall=System.currentTimeMillis();endedWall=0;activeMs=0;segmentStart=SystemClock.elapsedRealtime();status="recording";distance=0;speed=0;count=0;filter=selectedFilter;
-        RunFilter.Result result=filter.ingest(fix,System.currentTimeMillis());JSONObject point=pointJSON(fix,result.discontinuity,0);persist(point);count++;lastAcceptedTimestamp=fix.time;
-        startListening();message="Recording on this phone. You can lock the screen.";
+        activityType=selectedType;source="gps";id=UUID.randomUUID().toString();startedWall=System.currentTimeMillis();endedWall=0;activeMs=0;segmentStart=SystemClock.elapsedRealtime();status="recording";distance=0;speed=0;count=0;filter=selectedFilter;lastAcceptedTimestamp=0;
+        // The preview fix may be old or from where the app was opened; the first
+        // route point is the first steady fix measured after Start instead.
+        startListening();beginLock("Getting a precise GPS lock. Recording starts when it is steady.");persist(null);
     }
+    private void beginLock(String text){locking=true;startLock.reset();lockStarted=SystemClock.elapsedRealtime();listeningSince=lockStarted;locationState="locating";message=text;}
     synchronized void pause() throws Exception {
-        if(!recording())return;activeMs=elapsed();status="paused";speed=0;stopListening();locationState="idle";message="Run paused. Resume when ready.";persist(null);
+        if(!recording())return;activeMs=elapsed();locking=false;status="paused";speed=0;stopListening();locationState="idle";message="Run paused. Resume when ready.";persist(null);
     }
     synchronized void resume() throws Exception {
         if(!status.equals("paused"))return;
-        startListening();filter=new RunFilter(activityType);segmentStart=SystemClock.elapsedRealtime();status="recording";speed=0;message="Recording resumed. Waiting for a fresh GPS position.";persist(null);
+        startListening();filter=new RunFilter(activityType);segmentStart=SystemClock.elapsedRealtime();status="recording";speed=0;beginLock("Resuming. Getting a precise GPS lock first.");persist(null);
     }
     synchronized void stop() throws Exception {
-        if(!active())return;activeMs=elapsed();status="complete";endedWall=System.currentTimeMillis();speed=0;stopListening();locationState="idle";message="Run saved on this phone.";persist(null);
+        if(!active())return;
+        if(count==0){
+            // GPS never locked: there is no route to save, so do not leave an empty run.
+            String discarded=id;locking=false;status="ready";id="";database.discard(discarded);preview();
+            message="Nothing was recorded because GPS never locked. Try again outdoors.";persist(null);return;
+        }
+        activeMs=elapsed();locking=false;status="complete";endedWall=System.currentTimeMillis();speed=0;stopListening();locationState="idle";message="Run saved on this phone.";persist(null);
     }
     synchronized void demo() throws Exception {if(active())throw new IllegalStateException("Stop your current run first.");stopListening();source="demo";status="ready";id="";count=0;activeMs=0;distance=0;speed=0;fix=null;mapFix=null;place="";locationState="idle";message="";persist(null);}
     synchronized void stopPreview(){if(!active()){stopListening();locationState="idle";}}
     synchronized void place(String value) throws Exception {if(place.isEmpty()&&!value.isEmpty()){place=value.substring(0,Math.min(180,value.length()));persist(null);}}
-    private long elapsed(){return activeMs+(recording()?Math.max(0,SystemClock.elapsedRealtime()-segmentStart):0);}
+    private long elapsed(){return activeMs+(recording()&&!locking?Math.max(0,SystemClock.elapsedRealtime()-segmentStart):0);}
     private void startListening(){
         if(listening)return;
         if(ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED){locationState="denied";throw new IllegalStateException("Allow precise location in Android settings to record a run.");}
@@ -151,7 +163,16 @@ final class RunEngine implements LocationListener {
         if(recording()&&measuredElapsed<segmentStart)return;
         lastTimestamp=f.time;
         if(f.accuracy<=1000)mapFix=f;
-        if(f.accuracy>50){locationState="locating";speed=0;if(recording())filter.resetSegment();message="Approximate location found. Distance waits for a more accurate position.";return;}
+        // One coarse fix no longer cuts the line. The filter's 20 s gap rule breaks
+        // the segment only when good fixes stay away that long.
+        if(f.accuracy>50){locationState="locating";speed=0;message="Approximate location found. Distance waits for a more accurate position.";return;}
+        if(recording()&&locking){
+            fix=f;
+            boolean relaxed=SystemClock.elapsedRealtime()-lockStarted>StartLock.TIMEOUT_MS;
+            if(!relaxed&&!startLock.offer(f,filter.maximumSpeed())){locationState="locating";message="Getting a precise GPS lock. Recording starts when it is steady.";return;}
+            // The clock and the new segment both begin at this measured fix.
+            locking=false;segmentStart=Math.min(measuredElapsed,receivedElapsed);
+        }
         RunFilter.Result result=(recording()?filter:previewFilter).ingest(f,now);
         if(!result.accepted&&!result.reason.equals("stationary")){locationState="locating";message="Unreliable GPS movement ignored. Waiting for the next position.";return;}
         RunFilter.Fix previous=fix;fix=f;locationState="ready";lastGoodElapsed=SystemClock.elapsedRealtime();

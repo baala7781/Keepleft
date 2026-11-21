@@ -2,13 +2,13 @@ import type {WorldFeature} from '../geodata/osm';
 
 export type BuildingKind='house'|'apartment'|'office'|'commercial'|'institutional'|'industrial'|'fallback';
 const styles={
-  house:{wall:'#d4d0c9',roof:'#777c79',bay:3.4,floor:3.1,window:[.8,1.1],shade:.98},
-  apartment:{wall:'#d3d5d3',roof:'#858b89',bay:3.2,floor:3.2,window:[1.05,1.3],shade:1},
-  office:{wall:'#bdc6c8',roof:'#7e888c',bay:2.5,floor:3.6,window:[1.45,1.65],shade:.96},
-  commercial:{wall:'#c8cbc8',roof:'#7d8483',bay:3.8,floor:3.6,window:[1.7,1.5],shade:1},
-  institutional:{wall:'#d6d3ca',roof:'#8a8981',bay:4,floor:3.5,window:[1.1,1.65],shade:1},
-  industrial:{wall:'#a9b2b2',roof:'#737f81',bay:6,floor:4.5,window:[1.6,.7],shade:.94},
-  fallback:{wall:'#cdd1d0',roof:'#838b8a',bay:3.7,floor:3.2,window:[.9,1.2],shade:1},
+  house:{wall:'#eadbc4',roof:'#a3988a',bay:3.4,floor:3.1,window:[.8,1.1],shade:.98},
+  apartment:{wall:'#e9e0cf',roof:'#a09a90',bay:3.2,floor:3.2,window:[1.05,1.3],shade:1},
+  office:{wall:'#cfd9dc',roof:'#8f989c',bay:2.5,floor:3.6,window:[1.45,1.65],shade:.96},
+  commercial:{wall:'#e6d7c4',roof:'#9c958c',bay:3.8,floor:3.6,window:[1.7,1.5],shade:1},
+  institutional:{wall:'#e8dcc2',roof:'#a69b89',bay:4,floor:3.5,window:[1.1,1.65],shade:1},
+  industrial:{wall:'#c6c9c0',roof:'#8f948e',bay:6,floor:4.5,window:[1.6,.7],shade:.94},
+  fallback:{wall:'#e4dacb',roof:'#a09a90',bay:3.7,floor:3.2,window:[.9,1.2],shade:1},
 } as const;
 export function buildingProfile(p:WorldFeature['properties']){
   const type=String(p.building||'').toLowerCase();

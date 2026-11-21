@@ -9,6 +9,11 @@ import {activityStats} from '@/lib/tracking/activity-stats';
 import {createActivityStore} from '@/lib/native/platform';
 import {isAndroid,NativeRun} from '@/lib/native/bridge';
 import {clearWorldCache} from '@/lib/geodata/world-archive';
+import {displayPlace} from '@/lib/geodata/display-place';
+import {formatActivityTime} from '@/lib/tracking/activity-stats';
+import {Download,Play,Trash2} from 'lucide-react';
+
+const activityLabel=(type?:string)=>type==='cycle'?'Outdoor ride':type==='walk'?'Outdoor walk':'Outdoor run';
 
 export function downloadRoute(data:unknown,name='keepleft-activity.geojson') {
   if(isAndroid()){void NativeRun.exportRoute({data:JSON.stringify(data),name}).catch(()=>window.alert('Could not export this route. It remains saved in YourLeft.'));return;}
@@ -105,19 +110,25 @@ export function ActivityLibrary({runtime,status,onSaved,onReplay,canReplay}:{run
   return <div className="atlas-library">
     {contextualMessage&&<output>{contextualMessage}</output>}
     {showSaveError&&<Button variant="outline" disabled={busy} onClick={()=>void save()}>Retry save</Button>}
-    <details open><summary>Saved activities · {activities.length}</summary>
-      <small>{runtime.nativeRecording?'Saved on this phone. Uninstalling YourLeft removes local recordings.':'Only in this browser. Clearing site data removes them. Export a backup.'}</small>
-      <ul>{activities.map(activity=><li key={activity.id}>
-        <span>{activity.placeName&&`${activity.placeName} · `}{new Date(activity.startedAtMs).toLocaleDateString()} · {(activity.snapshot.distanceM/1000).toFixed(2)} km · {Math.floor(activity.snapshot.elapsedMs/60000)} min</span>
-        <div><Button variant="outline" disabled={busy} onClick={()=>void showDetails(activity.id)}>Details</Button><Button variant="outline" disabled={!canReplay||busy||!activity.sampleCount} onClick={()=>void replaySaved(activity.id)}>Replay</Button><Button variant="outline" onClick={()=>void exportSaved(activity.id)}>Export</Button>
-        <Button variant="outline" disabled={busy} onClick={()=>setDeleting(activity.id)}>Delete</Button></div>
-      </li>)}</ul>
-      {!activities.length&&<p>No saved GPS activities yet.</p>}
-      {activities.length>0&&<div style={{display:'flex',gap:8,marginTop:12,flexWrap:'wrap'}}>
-        <Button variant="outline" disabled={busy} onClick={()=>void exportAll()}>Export all activities</Button>
-        <Button variant="outline" disabled={busy||status==='recording'||status==='paused'} onClick={()=>setConfirmDeleteAll(true)}>Delete all data</Button>
-      </div>}
-    </details>
+    <p className="kl-library-note">{activities.length} {activities.length===1?'activity':'activities'} · {runtime.nativeRecording?'Stored only on this phone. Uninstalling YourLeft removes them.':'Stored only in this browser. Clearing site data removes them.'}</p>
+    {activities.length?<ul className="kl-library-list">{activities.map(activity=><li key={activity.id} className="kl-library-item">
+      <strong>{displayPlace(activity.placeName,activityLabel(activity.activityType))}</strong>
+      <small>{new Date(activity.startedAtMs).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})} · {(activity.snapshot.distanceM/1000).toFixed(2)} km · {formatActivityTime(activity.snapshot.elapsedMs)}</small>
+      <div className="kl-library-actions">
+        <Button className="kl-library-replay" variant="outline" disabled={!canReplay||busy||!activity.sampleCount} onClick={()=>void replaySaved(activity.id)}><Play/>Replay</Button>
+        <Button variant="ghost" disabled={busy} onClick={()=>void showDetails(activity.id)}>Details</Button>
+        <Button variant="ghost" aria-label="Export this activity" onClick={()=>void exportSaved(activity.id)}><Download/></Button>
+        <Button className="kl-library-delete" variant="ghost" aria-label="Delete this activity" disabled={busy} onClick={()=>setDeleting(activity.id)}><Trash2/></Button>
+      </div>
+    </li>)}</ul>:<p className="kl-library-note">No saved GPS activities yet. Finished runs appear here.</p>}
+    {activities.length>0&&<section className="kl-data-zone" aria-labelledby="kl-data-zone-title">
+      <h3 id="kl-data-zone-title">All your data</h3>
+      <p>Export keeps a copy of every route. Delete removes activities, unfinished recordings, the map cache and preferences from this device.</p>
+      <div>
+        <Button variant="outline" disabled={busy} onClick={()=>void exportAll()}><Download/>Export all activities</Button>
+        <Button variant="destructive" disabled={busy||status==='recording'||status==='paused'} onClick={()=>setConfirmDeleteAll(true)}><Trash2/>Delete all data</Button>
+      </div>
+    </section>}
     <Dialog open={selected!==null} onOpenChange={open=>{if(!open)setSelected(null);}}>
       {selected&&<DialogContent className="atlas-activity-dialog">
         <DialogHeader><DialogTitle>{selected.placeName||'Saved activity'}</DialogTitle>
@@ -139,12 +150,12 @@ export function ActivityLibrary({runtime,status,onSaved,onReplay,canReplay}:{run
     <AlertDialog open={deleting!==null} onOpenChange={open=>{if(!open&&!busy)setDeleting(null);}}>
       <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete this activity?</AlertDialogTitle>
       <AlertDialogDescription>The recording will be removed from this device. This cannot be undone; export it first if you want a backup.</AlertDialogDescription></AlertDialogHeader>
-      <AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={()=>void remove()}>Delete activity</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+      <AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><AlertDialogAction variant="destructive" disabled={busy} onClick={()=>void remove()}>Delete activity</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
     </AlertDialog>
     <AlertDialog open={confirmDeleteAll} onOpenChange={open=>{if(!open&&!busy)setConfirmDeleteAll(false);}}>
       <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete all saved data?</AlertDialogTitle>
       <AlertDialogDescription>Saved activities, unfinished recordings, map cache, and YourLeft preferences will be permanently removed from this device. This cannot be undone. Export your activities first if you want a backup.</AlertDialogDescription></AlertDialogHeader>
-      <AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={()=>void removeAll()}>Delete all data</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+      <AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><AlertDialogAction variant="destructive" disabled={busy} onClick={()=>void removeAll()}>Delete all data</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
     </AlertDialog>
   </div>;
 }

@@ -1,4 +1,6 @@
-export const stickerPalette=[[0,0,0],[243,59,83],[255,255,255],[160,189,236]];
+// Transparent, route crimson, white casing, and the pink that their anti-aliased
+// edge blends into. A blue entry here used to win those edge pixels.
+export const stickerPalette=[[0,0,0],[227,59,99],[255,255,255],[241,157,177]];
 export function stickerIndices(rgba:Uint8ClampedArray){
   const indexed=new Uint8Array(rgba.length/4);
   for(let p=0,i=0;p<rgba.length;p+=4,i++){

@@ -36,10 +36,9 @@ export class ReplayRuntime implements MotionSource {
     if(activity.samples.length>100000||!Number.isFinite(activity.snapshot.elapsedMs)||activity.snapshot.elapsedMs<0||!Number.isFinite(activity.snapshot.distanceM)||activity.snapshot.distanceM<0)throw new Error('The saved activity cannot be replayed.');
     this.samples=activity.samples.map(p=>({...p}));
     this.isDemoReplay=activity.source==='demo';this.placeName=activity.placeName;this.activityType=activity.activityType||'run';
-    // Older Android builds saved every activity as `run`. A sustained speed that
-    // is clearly non-running is enough to avoid harmful road snapping, while the
-    // original activity label and recorded metrics stay untouched.
     const averageSpeed=activity.snapshot.elapsedMs>0?activity.snapshot.distanceM/(activity.snapshot.elapsedMs/1000):0;
+    // Auto-detect fast vehicles (scooter, motorcycle, car). If recorded as run but speed > 12 m/s, treat as cycle to disable road snapping.
+    if(this.activityType==='run'&&averageSpeed>12){this.activityType='cycle';}
     this.roadAlignmentRecommended=this.activityType!=='cycle'&&averageSpeed<7.5;
     this.legacyTiming=!this.samples.every(p=>Number.isFinite(p.activeElapsedMs));
     let time=0,distance=0;

@@ -1,12 +1,13 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import {ChevronDown,LocateFixed} from 'lucide-react';
+import {ChevronDown,Video} from 'lucide-react';
 import type {CameraMode} from '@/lib/renderer/world';
 
+/** One name per camera everywhere: run screen, replay rail, settings and Create post. */
 export const cameraChoices:{mode:CameraMode;label:string;description:string}[]=[
-  {mode:'orbit',label:'Aerial',description:'Circle the world'},
-  {mode:'follow',label:'Follow',description:'Keep the runner in view'},
-  {mode:'free',label:'Explore',description:'Leave the camera where you place it'},
+  {mode:'follow',label:'Follow',description:'Stays behind you as you move'},
+  {mode:'orbit',label:'Orbit',description:'Slowly circles your position'},
+  {mode:'free',label:'Overview',description:'Free camera that stays where you leave it'},
 ];
 
 export function CameraPopover({mode,onSelect,hideChase=false}:{mode:CameraMode;onSelect:(mode:CameraMode)=>void;hideChase?:boolean}){
@@ -22,7 +23,7 @@ export function CameraPopover({mode,onSelect,hideChase=false}:{mode:CameraMode;o
   const current=choices.find(choice=>choice.mode===mode)||choices[0];
   return <div className="kl-camera-popover" ref={root}>
     <button ref={trigger} className="kl-camera-trigger" type="button" aria-label={`Camera view: ${current.label}`}
-      aria-expanded={open} aria-controls="kl-camera-choices" onClick={()=>setOpen(value=>!value)}><LocateFixed size={18}/><span>{cameraChoices.find(choice=>choice.mode===mode)?.label}</span><ChevronDown size={16}/></button>
+      aria-expanded={open} aria-controls="kl-camera-choices" onClick={()=>setOpen(value=>!value)}><Video size={18}/><span>{current.label}</span><ChevronDown size={16}/></button>
     {open&&<fieldset className="kl-camera-choices" id="kl-camera-choices">
       <legend className="kl-settings-eyebrow">Camera views</legend>
       {choices.map(choice=><button type="button" key={choice.mode} aria-pressed={mode===choice.mode}

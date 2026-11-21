@@ -1,10 +1,11 @@
 'use client';
 import { Button } from '@/components/ui/button';
-import { Pause, Play, RotateCcw, RotateCw, LocateFixed, Download, Plus, Minus, ChevronUp, ChevronDown, ChevronLeft, SlidersHorizontal, ArrowUpLeft, X, Share2, Settings, House, Navigation2, MapPin, Clock3, Gauge, Orbit, Mountain, Footprints, Bike, PersonStanding, Sun, Moon, OctagonX } from 'lucide-react';
+import { Pause, Play, RotateCcw, RotateCw, LocateFixed, Download, Plus, Minus, ChevronUp, ChevronDown, ChevronLeft, SlidersHorizontal, ArrowUpLeft, X, Share2, Settings, House, Navigation2, MapPin, Clock3, Gauge, Orbit, Mountain, Footprints, Bike, PersonStanding, Square } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {ActivityLibrary,downloadRoute} from './activity-library';
 import {CameraPopover,cameraChoices} from './camera-popover';
 import {DeveloperDiagnostics} from './developer-diagnostics';
+import {ThemeToggle} from './theme-toggle';
 import type { Map as MapLibreMap,GeoJSONSource } from 'maplibre-gl';
 import { ActivityRuntime, initialSnapshot } from '@/lib/tracking/activity';
 import { type CameraMode, type Diagnostics,type StreamingWorldLayer } from '@/lib/renderer/world';
@@ -36,6 +37,7 @@ import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from '@
 import {isAndroid,isIOS} from '@/lib/native/bridge';
 import {NativeRun} from '@/lib/native/bridge';
 import {LEGAL_CONSENT_KEY,LEGAL_VERSION} from '@/lib/legal/consent';
+import {APP_VERSION} from '@/lib/version';
 export { ActivityRuntime } from '@/lib/tracking/activity';
 
 function formatDuration(ms:number) {
@@ -85,6 +87,8 @@ export function AtlasExperience({onHome,initialActivity}: {onHome?:()=>void;init
     window.addEventListener('keydown',close);
     return()=>{window.removeEventListener('keydown',close);settingsTrigger.current?.focus();};
   },[optionsOpen,settingsPage]);
+  // Each settings page opens at its top, not at the scroll position of the previous page.
+  useEffect(()=>{if(settings.current)settings.current.scrollTop=0;},[settingsPage]);
   const [toolsOpen,setToolsOpen]=useState(false);
   const [gestureHint,setGestureHint]=useState(false);
   useEffect(()=>{try{setGestureHint(window.localStorage.getItem('keepleft-gestures-seen')!=='1');}catch{}},[]);
@@ -352,13 +356,13 @@ export function AtlasExperience({onHome,initialActivity}: {onHome?:()=>void;init
     </header>
     <div className="kl-view-bar">
       <CameraPopover mode={mode} hideChase={cycle} onSelect={value=>camera(value,true)}/>
-      {!replay&&<div className="kl-live-lighting" role="group" aria-label="World lighting"><button type="button" aria-pressed={worldTheme==='day'} onClick={()=>setWorldTheme('day')}><Sun/><span>Day</span></button><button type="button" aria-pressed={worldTheme==='night'} onClick={()=>setWorldTheme('night')}><Moon/><span>Night</span></button></div>}
+      <ThemeToggle compact/>
       <Button variant="outline" className="kl-desktop-camera-tools" aria-label="Adjust camera" aria-expanded={toolsOpen} onClick={()=>setToolsOpen(value=>!value)}><SlidersHorizontal/></Button>
       <Button variant="outline" aria-label="Reset view" onClick={()=>camera(mode,true,true)}><LocateFixed/></Button>
     </div>
     {gestureHint&&!optionsOpen&&!replay&&<output className="kl-gesture-hint">Drag to look around · Pinch to zoom · Two fingers to tilt<button type="button" aria-label="Dismiss gesture hint" onClick={()=>{setGestureHint(false);try{window.localStorage.setItem('keepleft-gestures-seen','1');}catch{}}}><X size={16}/></button></output>}
     <button className="kl-compass" aria-label="Point map north" onClick={()=>{const map=mapRef.current;if(map)adjustView({bearing:-map.getBearing()});}}><Navigation2 style={{transform:`rotate(${-(diagnostics?.camera.bearing||0)}deg)`}}/><span>N</span></button>
-    {replay&&<nav className="kl-replay-views" aria-label="Replay camera views"><button aria-pressed={mode==='follow'} onClick={()=>camera('follow',true)}><LocateFixed/>Follow</button><button aria-pressed={mode==='orbit'} onClick={()=>camera('orbit',true)}><Orbit/>Orbit</button><button aria-pressed={mode==='free'} onClick={()=>camera('free',true,true)}><Mountain/>Overview</button><button ref={settingsTrigger} className="kl-replay-more" aria-label="More camera views and settings" aria-expanded={optionsOpen} aria-controls="run-settings" onClick={()=>{setSettingsPage('main');setOptionsOpen(value=>!value);}}><SlidersHorizontal/></button></nav>}
+    {replay&&<nav className="kl-replay-views" aria-label="Replay camera views"><button aria-pressed={mode==='follow'} onClick={()=>camera('follow',true)}><LocateFixed/>Follow</button><button aria-pressed={mode==='orbit'} onClick={()=>camera('orbit',true)}><Orbit/>Orbit</button><button aria-pressed={mode==='free'} onClick={()=>camera('free',true,true)}><Mountain/>Overview</button><ThemeToggle compact/><button ref={settingsTrigger} className="kl-replay-more" aria-label="More camera views and settings" aria-expanded={optionsOpen} aria-controls="run-settings" onClick={()=>{setSettingsPage('main');setOptionsOpen(value=>!value);}}><SlidersHorizontal/></button></nav>}
     <nav className="keepleft-map-tools kl-desktop-camera-tools" aria-label="Adjust map view" hidden={!toolsOpen}>
       <Button variant="outline" className="keepleft-angle-toggle" aria-label="Drag to change angle" aria-pressed={angleDrag} onClick={()=>{const next=!angleDrag;angleDragRef.current=next;setAngleDrag(next);if(next)mapRef.current?.dragPan.disable();else mapRef.current?.dragPan.enable();}}>{angleDrag?'Angle':'Move'}</Button>
       <Button variant="outline" aria-label="Zoom in" onClick={()=>adjustView({zoom:.5})}><Plus/></Button>
@@ -371,30 +375,39 @@ export function AtlasExperience({onHome,initialActivity}: {onHome?:()=>void;init
     <aside ref={settings} className="atlas-location-panel" id="run-settings" data-open={optionsOpen} aria-hidden={!optionsOpen} inert={!optionsOpen}>
       <div className="keepleft-panel-heading">
         {settingsPage!=='main'&&<Button variant="ghost" aria-label="Back to settings" onClick={()=>setSettingsPage('main')}><ChevronLeft/></Button>}
-        <h2>{settingsPage==='main'?'Activity settings':settingsPage==='camera'?'Camera':settingsPage==='lighting'?'World lighting':settingsPage==='graphics'?'Graphics':settingsPage==='activities'?'Saved activities':settingsPage==='recovery'?'Activity recovery':settingsPage==='legal'?'Legal & Data':'Developer'}</h2>
+        <h2>{settingsPage==='main'?'Settings':settingsPage==='camera'?'Camera':settingsPage==='lighting'?'Lighting':settingsPage==='graphics'?'Graphics':settingsPage==='activities'?'Saved activities':settingsPage==='recovery'?'Unfinished activities':settingsPage==='legal'?'Privacy & legal':'Developer'}</h2>
         <Button variant="ghost" aria-label="Close settings" onClick={()=>{setOptionsOpen(false);setSettingsPage('main');}}><X/></Button>
       </div>
       <div hidden={!optionsOpen}>
       {settingsPage==='main'&&<>
-        <output className="kl-settings-status">{replay?'Replay · GPS off':gps?health.label:'Demo world'}</output>
-        {!replay&&!active&&!runtime.current.nativeRecording&&<section className="kl-settings-section"><h3>Activity</h3><fieldset className="kl-settings-segment"><legend className="sr-only">Activity type</legend>{(['walk','run','cycle'] as ActivityType[]).map(value=><button type="button" key={value} aria-pressed={activityType===value} onClick={()=>{runtime.current.setActivityType(value);setActivityType(value);if(value==='cycle'&&mode==='chase')camera('follow',true,true);}}>{value}</button>)}</fieldset></section>}
+        <output className="kl-settings-status" data-quality={replay||!gps?undefined:health.quality}><i/>{replay?'Replay · GPS off':gps?health.label:'Demo world · not your location'}</output>
         <section className="kl-settings-section"><h3>View</h3>
           <button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('camera')}><span>Camera</span><strong>{cameraChoices.find(choice=>choice.mode===mode)?.label}</strong><ChevronLeft/></button>
           <button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('lighting')}><span>Lighting</span><strong>{worldTheme==='day'?'Day':'Night'}</strong><ChevronLeft/></button>
-          <button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('graphics')}><span>Graphics</span><strong>{quality==='battery'?'Battery saver':quality==='balanced'?'Balanced':'High'}</strong><ChevronLeft/></button>
+          <button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('graphics')}><span>Graphics</span><strong>{quality==='battery'?'Battery saver':quality==='balanced'?'Balanced':'High detail'}</strong><ChevronLeft/></button>
         </section>
-        <section className="kl-settings-section"><h3>Tracking</h3><label className="kl-settings-row kl-settings-toggle"><span>Align display to roads<small>Saved distance never changes</small></span><input type="checkbox" checked={alignRoads} onChange={e=>{controls.current.alignRoads=e.target.checked;setAlignRoads(e.target.checked);}}/></label></section>
+        <section className="kl-settings-section"><h3>Route display</h3><label className="kl-settings-row kl-settings-toggle"><span>Snap route to roads<small>Changes only how the line is drawn. Saved distance and time never change.</small></span><input type="checkbox" role="switch" checked={alignRoads} onChange={e=>{controls.current.alignRoads=e.target.checked;setAlignRoads(e.target.checked);}}/></label></section>
+        {!replay&&<section className="kl-settings-section"><h3>Location</h3>
+          <button className="kl-settings-row" type="button" onClick={()=>void openPermissionSettings()}><span>Location permission<small>Open device settings</small></span><ChevronLeft/></button>
+          <div className="kl-settings-actions">
+            {gps&&!active&&snapshot.status!=='complete'&&<Button variant="outline" onClick={locate} disabled={runtime.current.busy}><LocateFixed/>Retry GPS</Button>}
+            {!gps&&!active&&<Button variant="outline" disabled={runtime.current.busy} onClick={()=>{setOptionsOpen(false);locate();}}><LocateFixed/>Use my location</Button>}
+            {gps&&!active&&<Button variant="ghost" disabled={runtime.current.busy||(snapshot.status==='complete'&&!retained)} onClick={()=>{runtime.current.useDemo();camera('orbit');}}><Mountain/>Switch to demo world</Button>}
+            {gps&&mapStatus.includes('unavailable')&&<Button variant="outline" onClick={retryMap}>Retry nearby map</Button>}
+          </div>
+          {settingsNotice&&<output className="kl-settings-status">{settingsNotice}</output>}
+        </section>}
+        {replay&&mapStatus.includes('unavailable')&&<div className="kl-settings-actions"><Button variant="outline" onClick={retryMap}>Retry nearby map</Button></div>}
         <section className="kl-settings-section"><h3>Your activities</h3>
-          {!runtime.current.nativeRecording&&<button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('recovery')}><span>Activity recovery</span><ChevronLeft/></button>}
-          <button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('activities')}><span>Saved activities</span><ChevronLeft/></button>
+          <button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('activities')}><span>Saved activities<small>Replay, export or delete</small></span><ChevronLeft/></button>
+          {!runtime.current.nativeRecording&&<button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('recovery')}><span>Unfinished activities<small>Recover a run that was interrupted</small></span><ChevronLeft/></button>}
         </section>
-        <section className="kl-settings-section"><h3>About</h3><button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('legal')}><span>Legal &amp; Data</span><strong>Beta</strong><ChevronLeft/></button></section>
-        <div className="atlas-location-actions">{gps&&!replay&&!active&&snapshot.status!=='complete'&&<Button variant="outline" onClick={locate} disabled={runtime.current.busy}><LocateFixed/>Retry GPS</Button>}
-          {gps&&!active&&<Button variant="outline" disabled={runtime.current.busy||(snapshot.status==='complete'&&!retained)} onClick={()=>{runtime.current.useDemo();camera('orbit');}}>Demo world</Button>}
-          {(gps||replay)&&mapStatus.includes('unavailable')&&<Button variant="outline" onClick={retryMap}>Retry nearby map</Button>}
-        </div>
-        {replayError&&<p role="alert">{replayError}</p>}
-        {devTools&&<button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('developer')}><span>Developer diagnostics</span><ChevronLeft/></button>}
+        <section className="kl-settings-section"><h3>About</h3>
+          <button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('legal')}><span>Privacy &amp; legal</span><ChevronLeft/></button>
+          {devTools&&<button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('developer')}><span>Developer diagnostics</span><ChevronLeft/></button>}
+        </section>
+        {replayError&&<p className="kl-error" role="alert">{replayError}</p>}
+        <p className="kl-settings-version">YourLeft {APP_VERSION} · Private beta</p>
       </>}
       {settingsPage==='camera'&&<div className="kl-settings-options">{cameraChoices.filter(choice=>!cycle||choice.mode!=='chase').map(choice=><button type="button" key={choice.mode} aria-pressed={mode===choice.mode} onClick={()=>{camera(choice.mode,true);setSettingsPage('main');}}><span>{choice.label}<small>{choice.description}</small></span><i/></button>)}</div>}
       {settingsPage==='lighting'&&<div className="kl-settings-options">{(['day','night'] as const).map(value=><button type="button" key={value} aria-pressed={worldTheme===value} onClick={()=>setWorldTheme(parseWorldTheme(value))}><span>{value==='day'?'Day':'Night'}<small>{value==='day'?'Noir daylight':'Warm windows after dark'}</small></span><i/></button>)}</div>}
@@ -402,30 +415,33 @@ export function AtlasExperience({onHome,initialActivity}: {onHome?:()=>void;init
       {!runtime.current.nativeRecording&&<div hidden={settingsPage!=='recovery'}><ActivityRecovery runtime={runtime.current} canRecover={!replay&&canReplay} onConflict={onRecoveryConflict} onRecovered={()=>{setRetained(false);setRecoveryConflict(false);camera('follow');}}/>{recoveryConflict&&<Button variant="outline" onClick={()=>downloadRoute(runtime.current.exportGeoJSON())}>Export backup</Button>}</div>}
       <div hidden={settingsPage!=='activities'}><ActivityLibrary runtime={runtime.current} status={capture.status} onSaved={onSaved} onReplay={openReplay} canReplay={canReplay}/></div>
       {settingsPage==='legal'&&<div className="kl-legal-settings">
-        <p>Private beta · 0.2.18<br/><small>Consent version {LEGAL_VERSION}</small></p>
-        <button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('activities')}><span>Export or delete activity data<small>Back up activities or remove local data</small></span><ChevronLeft/></button>
-        <a className="kl-settings-row" href="/terms"><span>Terms of Use</span><ChevronLeft/></a>
-        <a className="kl-settings-row" href="/privacy"><span>Privacy Policy</span><ChevronLeft/></a>
-        <a className="kl-settings-row" href="/about"><span>About &amp; Licenses</span><ChevronLeft/></a>
-        <button className="kl-settings-row" type="button" onClick={()=>void openPermissionSettings()}><span>Review location permission<small>Opens device settings on Android</small></span><ChevronLeft/></button>
-        <button className="kl-settings-row" type="button" disabled={active} onClick={resetConsent}><span>Review consent again<small>{active?'Finish the activity first':'Resets the local acceptance record'}</small></span><ChevronLeft/></button>
+        <section className="kl-settings-section"><h3>Documents</h3>
+          <a className="kl-settings-row" href="/privacy"><span>Privacy Policy</span><ChevronLeft/></a>
+          <a className="kl-settings-row" href="/terms"><span>Terms of Use</span><ChevronLeft/></a>
+          <a className="kl-settings-row" href="/about"><span>About &amp; Licenses</span><ChevronLeft/></a>
+        </section>
+        <section className="kl-settings-section"><h3>Your data</h3>
+          <button className="kl-settings-row" type="button" onClick={()=>setSettingsPage('activities')}><span>Export or delete your activities<small>Everything is stored only on this device</small></span><ChevronLeft/></button>
+          <button className="kl-settings-row" type="button" disabled={active} onClick={resetConsent}><span>Review consent again<small>{active?'Finish the activity first':'Shows the beta agreement again'}</small></span><ChevronLeft/></button>
+        </section>
         {settingsNotice&&<output className="kl-settings-status">{settingsNotice}</output>}
+        <p className="kl-settings-version">YourLeft {APP_VERSION} · Private beta<br/>Consent version {LEGAL_VERSION}</p>
       </div>}
       {devTools&&settingsPage==='developer'&&<DeveloperDiagnostics runtime={runtime.current} scene={diagnostics} coverage={coverage} mapStatus={mapStatus}/>}
       </div>
     </aside>
     <div className="kl-dock" ref={dock} data-collapsed={dockCollapsed} data-ready={snapshot.status==='ready'} data-recording={!replay&&active}><div className="kl-dock-content">
-    {!replay&&snapshot.status==='ready'&&<fieldset className="kl-ready-types"><legend className="sr-only">Choose your activity</legend>{(['run','walk','cycle'] as ActivityType[]).map(value=><button key={value} type="button" aria-pressed={activityType===value} disabled={runtime.current.busy} onClick={()=>{runtime.current.setActivityType(value);setActivityType(value);}}>{value==='run'?<Footprints/>:value==='walk'?<PersonStanding/>:<Bike/>}{value==='run'?'Outdoor run':value==='walk'?'Walk':'Cycle'}</button>)}</fieldset>}
+    {!replay&&snapshot.status==='ready'&&<fieldset className="kl-ready-types"><legend className="sr-only">Choose your activity</legend>{(['walk','run','cycle'] as ActivityType[]).map(value=><button key={value} type="button" aria-pressed={activityType===value} disabled={runtime.current.busy} onClick={()=>{runtime.current.setActivityType(value);setActivityType(value);if(value==='cycle'&&mode==='chase')camera('follow',true,true);}}>{value==='run'?<Footprints/>:value==='walk'?<PersonStanding/>:<Bike/>}{value==='run'?'Run':value==='walk'?'Walk':'Cycle'}</button>)}</fieldset>}
     {!replay&&active&&!dockCollapsed&&<div className="kl-recording-clock"><span>Outdoor {activityType}</span><strong>{formatDuration(snapshot.elapsedMs)}</strong></div>}
     {(replay||snapshot.status!=='ready')&&<div className="kl-dock-heading"><span>{dockCollapsed?`${(snapshot.distanceM/1000).toFixed(2)} km · ${formatDuration(snapshot.elapsedMs)}${replay?' · Replay':''}`:'Activity details'}</span><Button variant="ghost" aria-label={dockCollapsed?'Expand activity details':'Collapse activity details'} aria-expanded={!dockCollapsed} aria-controls="activity-stats" onClick={()=>setDockCollapsed(value=>!value)}>{dockCollapsed?<ChevronUp size={18}/>:<ChevronDown size={18}/>}</Button></div>}
-    {!replay&&snapshot.status==='ready'&&<div className="kl-ready"><div><span className="kl-eyebrow">{gps?`Outdoor ${activityType}`:'Demo world'}</span><h1>{gps?(runtime.current.locationState==='ready'?'Ready when you are.':'Find your starting point.'):'Ready when you are.'}</h1></div>{(!gps||['idle','denied','timeout','unavailable'].includes(runtime.current.locationState))&&<Button variant="outline" disabled={runtime.current.busy} onClick={locate}><LocateFixed/>{gps?'Find me':'Use my location'}</Button>}</div>}
+    {!replay&&snapshot.status==='ready'&&<div className="kl-ready"><div><span className="kl-eyebrow">{gps?`Outdoor ${activityType}`:'Demo world'}</span><h1>{gps?(runtime.current.locationState==='ready'?'Ready when you are.':'Find your starting point.'):'Ready when you are.'}</h1></div>{(!gps||['idle','denied','timeout','unavailable'].includes(runtime.current.locationState))&&<Button variant="outline" className="kl-locate-btn" disabled={runtime.current.busy} onClick={locate}><LocateFixed/>{gps?'Find me':'Use GPS'}</Button>}</div>}
     {gps&&!replay&&snapshot.status!=='complete'&&<div className="kl-signal" role="status" aria-live="polite" data-quality={health.quality}><i/>{runtime.current.locationState==='idle'?'Enable location to get started':runtime.current.locationState==='denied'?'Location permission denied. Open device settings to allow location access.':runtime.current.locationState==='unavailable'?'Location unavailable. Check Location Services in device settings.':runtime.current.locationState==='timeout'?'GPS timed out. Move outdoors and retry.':health.label}</div>}
     {runtime.current.actionError&&<p className="kl-error" role="alert">{runtime.current.actionError}</p>}
-    {isIOS()&&nearbyWorld?.placeholder&&mapStatus&&<p className="kl-feedback" role="status">{mapStatus}</p>}
+    {gps&&nearbyWorld?.placeholder&&mapStatus&&<p className="kl-feedback" role="status">{mapStatus}{mapStatus.includes('unavailable')&&<> <button type="button" className="kl-link" onClick={retryMap}>Retry</button></>}</p>}
     {replayError&&<p className="kl-error" role="alert">{replayError}</p>}
     {replay&&!dockCollapsed&&<h1 className="kl-replay-title">Same roads. A clearer you.</h1>}
     <section className="atlas-metrics" id="activity-stats" aria-label={replay?'Activity summary':'Live activity metrics'} aria-live="polite" hidden={dockCollapsed}>
-      <div className="atlas-status"><i data-state={snapshot.status}/>{replay?(snapshot.status==='recording'?`Replay · ${replay.rate}×`:snapshot.status==='complete'?'Replay complete':'Replay paused'):gps?(snapshot.status==='recording'?'Recording GPS':snapshot.status==='paused'?'Recording paused':snapshot.status==='complete'?'GPS activity complete':'Device GPS mode'):(snapshot.status==='ready'?'Ready for a demo run':snapshot.status==='recording'?'Demo run · 12× playback':snapshot.status==='paused'?'Demo paused':'Demo complete')}</div>
+      <div className="atlas-status"><i data-state={snapshot.status}/>{replay?(snapshot.status==='recording'?`Replay · ${replay.rate}×`:snapshot.status==='complete'?'Replay complete':'Replay paused'):gps?(snapshot.status==='recording'?(['locating','timeout'].includes(runtime.current.locationState)?'Getting GPS lock…':'Recording GPS'):snapshot.status==='paused'?'Recording paused':snapshot.status==='complete'?'GPS activity complete':'Device GPS mode'):(snapshot.status==='ready'?'Ready for a demo run':snapshot.status==='recording'?'Demo run · 12× playback':snapshot.status==='paused'?'Demo paused':'Demo complete')}</div>
       <div className="atlas-metric-grid">
         <article><span><MapPin/>Distance</span><strong>{(metrics.distanceM/1000).toFixed(2)}</strong><small>km</small></article>
         <article><span><Clock3/>{replay?'Duration':'Time'}</span><strong>{formatDuration(metrics.elapsedMs)}</strong><small>{replay?'Total':gps?'Active':'Demo'}</small></article>
@@ -434,11 +450,11 @@ export function AtlasExperience({onHome,initialActivity}: {onHome?:()=>void;init
     </section>
     {replay?<ReplayControls replay={replay} snapshot={snapshot} onClose={closeReplay} compact={dockCollapsed}/>:<section className="atlas-controls" aria-label="Activity controls">
       {snapshot.status==='complete'
-        ? <><Button className="atlas-primary-control" disabled={!canReplay||storyLoading} onClick={()=>{const record=currentRecord();if(record)openStory(record);}}><Share2/>{storyLoading?'Preparing story…':'Create social post'}</Button><Button variant="outline" disabled={!canReplay} onClick={()=>{const record=currentRecord();if(record)openReplay(record);}}><Play/>{gps?'Replay run':'Replay demo'}</Button><Button variant="ghost" disabled={gps&&!retained} onClick={()=>{if(gps)locate();else runtime.current.reset();camera('orbit');}}><RotateCcw/>{gps?'New run':'Reset demo'}</Button>{gps&&!retained&&<Button variant="outline" onClick={exportRoute}><Download/>Save backup</Button>}</>
+        ? <><div className="kl-complete-row"><Button className="atlas-primary-control" disabled={!canReplay} onClick={()=>{const record=currentRecord();if(record)openReplay(record);}}><Play/>{gps?'Replay run':'Replay demo'}</Button><Button variant="outline" disabled={!canReplay||storyLoading} onClick={()=>{const record=currentRecord();if(record)openStory(record);}}><Share2/>{storyLoading?'Preparing…':'Create post'}</Button></div>
+          <div className="kl-complete-row">{gps&&!retained&&<Button variant="outline" onClick={exportRoute}><Download/>Save backup</Button>}<Button variant="ghost" disabled={gps&&!retained} onClick={()=>{if(gps)locate();else runtime.current.reset();camera('orbit');}}><RotateCcw/>{gps?'Start a new run':'Reset demo'}</Button></div></>
         : <><Button className="atlas-primary-control" disabled={runtime.current.busy||recoveryConflict||(snapshot.status==='paused'&&runtime.current.locationState==='locating')||(snapshot.status==='ready'&&(gps?runtime.current.locationState!=='ready':!ready))} onClick={primary}>{snapshot.status==='recording'?<Pause/>:<Play/>}{snapshot.status==='recording'?'Pause':snapshot.status==='paused'?'Resume':gps?'Start recording':'Start demo run'}</Button>
-        {snapshot.status!=='ready'&&<Button className="atlas-stop-control" data-confirm={confirmFinish||undefined} disabled={runtime.current.busy} aria-label={confirmFinish?'Tap again to finish your activity':'Finish activity'} onClick={()=>{if(confirmFinish){if(confirmTimer.current)clearTimeout(confirmTimer.current);confirmTimer.current=null;setConfirmFinish(false);runtime.current.stop();camera('orbit');}else{setConfirmFinish(true);confirmTimer.current=setTimeout(()=>{setConfirmFinish(false);confirmTimer.current=null;},3000);}}}><OctagonX/><span>{confirmFinish?'Tap to confirm':'Finish'}</span></Button>}</>}
+        {snapshot.status!=='ready'&&<Button variant="destructive" className="atlas-stop-control" data-confirm={confirmFinish||undefined} disabled={runtime.current.busy} aria-label={confirmFinish?'Tap again to finish your activity':'Finish activity'} onClick={()=>{if(confirmFinish){if(confirmTimer.current)clearTimeout(confirmTimer.current);confirmTimer.current=null;setConfirmFinish(false);runtime.current.stop();camera('orbit');}else{setConfirmFinish(true);confirmTimer.current=setTimeout(()=>{setConfirmFinish(false);confirmTimer.current=null;},3000);}}}><Square/><span>{confirmFinish?'Tap to confirm':'Finish'}</span></Button>}</>}
     </section>}
-    {replay&&replayActivity&&!dockCollapsed&&<Button className="kl-social-post" variant="outline" disabled={storyLoading} onClick={()=>openStory(replayActivity)}><Share2/>{storyLoading?'Preparing story…':'Create social post'}</Button>}
     {!dockCollapsed&&<p className="kl-dock-motto">{replay?'YourLeft':'Same roads. A clearer you.'}</p>}
     </div>
     </div>

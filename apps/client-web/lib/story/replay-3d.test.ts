@@ -44,26 +44,26 @@ describe('3D replay video exporter', () => {
   });
 
   it('calculates accurate, distinct video durations across different replay speeds', () => {
-    // 2-minute run (120 seconds):
-    expect(estimateReplayVideoDuration(120000, 2)).toBe(30);
-    expect(estimateReplayVideoDuration(120000, 3)).toBe(24);
-    expect(estimateReplayVideoDuration(120000, 8)).toBe(18);
-    expect(estimateReplayVideoDuration(120000, 10)).toBe(14);
-    expect(estimateReplayVideoDuration(120000, 20)).toBe(10);
+    // 2-minute run (120 seconds): actual speed now matches button label
+    expect(estimateReplayVideoDuration(120000, 2)).toBe(30); // 120/2 = 60s, capped at 30s max
+    expect(estimateReplayVideoDuration(120000, 3)).toBe(30); // 120/3 = 40s, capped at 30s max
+    expect(estimateReplayVideoDuration(120000, 8)).toBe(15); // 120/8 = 15s
+    expect(estimateReplayVideoDuration(120000, 10)).toBe(12); // 120/10 = 12s
+    expect(estimateReplayVideoDuration(120000, 20)).toBe(6); // 120/20 = 6s
 
     // Short run (42 seconds):
     expect(estimateReplayVideoDuration(42000, 2)).toBe(21);
     expect(estimateReplayVideoDuration(42000, 3)).toBe(14);
     expect(estimateReplayVideoDuration(42000, 8)).toBe(5);
-    expect(estimateReplayVideoDuration(42000, 10)).toBe(4);
-    expect(estimateReplayVideoDuration(42000, 20)).toBe(3);
+    expect(estimateReplayVideoDuration(42000, 10)).toBe(5); // 42/10 = 4.2s, min 5s
+    expect(estimateReplayVideoDuration(42000, 20)).toBe(5); // 42/20 = 2.1s, min 5s
 
-    // Multi-kilometer run (1km, 5km, etc.):
-    expect(estimateReplayVideoDuration(600000, 2)).toBe(30);
-    expect(estimateReplayVideoDuration(600000, 3)).toBe(24);
-    expect(estimateReplayVideoDuration(600000, 8)).toBe(18);
-    expect(estimateReplayVideoDuration(600000, 10)).toBe(14);
-    expect(estimateReplayVideoDuration(600000, 20)).toBe(10);
+    // Multi-kilometer run (1km, 5km, etc.): all cap at 30s max
+    expect(estimateReplayVideoDuration(600000, 2)).toBe(30); // 600/2 = 300s, capped at 30s
+    expect(estimateReplayVideoDuration(600000, 3)).toBe(30); // 600/3 = 200s, capped at 30s
+    expect(estimateReplayVideoDuration(600000, 8)).toBe(30); // 600/8 = 75s, capped at 30s
+    expect(estimateReplayVideoDuration(600000, 10)).toBe(30); // 600/10 = 60s, capped at 30s
+    expect(estimateReplayVideoDuration(600000, 20)).toBe(30); // 600/20 = 30s
 
     // Formats video durations cleanly for the UI
     expect(formatVideoDuration(15)).toBe('15s');

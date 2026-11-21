@@ -32,7 +32,7 @@ export async function loadDemoTerrain(frame:MapPlaneFrame) {
   const base=sample(manifest.origin.lng,manifest.origin.lat);
   const segments=80,span=2600,stride=segments+1;
   const positions=new Float32Array(stride*stride*3),colors=new Float32Array(positions.length),fade=new Float32Array(stride*stride),indices:number[]=[];
-  const stone=new THREE.Color('#656b65'),wood=new THREE.Color('#39443b'),snow=new THREE.Color('#828781');
+  const stone=new THREE.Color('#5d6660'),wood=new THREE.Color('#2f3d33'),snow=new THREE.Color('#8b918d');
   for(let row=0;row<=segments;row++)for(let col=0;col<=segments;col++){
     const east=(col/segments*2-1)*span,north=(1-row/segments*2)*span;
     const geo=frame.unproject({x:east,y:north,z:0}),elevation=sample(geo.lng,geo.lat);
@@ -57,12 +57,24 @@ export async function loadDemoTerrain(frame:MapPlaneFrame) {
   geometry.setAttribute('color',new THREE.BufferAttribute(colors,3));
   geometry.setAttribute('terrainFade',new THREE.BufferAttribute(fade,1));
   geometry.setIndex(indices);geometry.computeVertexNormals();
-  const material=new THREE.MeshStandardMaterial({color:'#555c56',vertexColors:true,transparent:true,depthWrite:false,roughness:1,metalness:0,side:THREE.DoubleSide});
+  // Baked hillshade: a low north-west light gives ridges a lit face and valleys a soft shadow.
+  // The scene sun is high and shared with buildings, so on its own it left the slopes almost black.
+  const normals=geometry.getAttribute('normal'),light=new THREE.Vector3(-.62,.5,-.62).normalize(),normal=new THREE.Vector3();
+  for(let v=0;v<stride*stride;v++){
+    normal.fromBufferAttribute(normals,v);
+    const lit=Math.max(0,normal.dot(light)),shade=.42+.88*lit;
+    colors[v*3]*=shade;colors[v*3+1]*=shade;colors[v*3+2]*=shade;
+  }
+  // Unlit, so the baked hillshade is the only shading and the high scene sun doesn't flatten it.
+  const material=new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,depthWrite:false,side:THREE.DoubleSide});
   material.onBeforeCompile=shader=>{
-    shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nattribute float terrainFade;\nvarying float vTerrainFade;')
-      .replace('#include <begin_vertex>','#include <begin_vertex>\nvTerrainFade = terrainFade;');
-    shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying float vTerrainFade;')
-      .replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a *= vTerrainFade;');
+    shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nattribute float terrainFade;\nvarying float vTerrainFade;\nvarying float vTerrainRadius;')
+      .replace('#include <begin_vertex>','#include <begin_vertex>\nvTerrainFade = terrainFade;\nvTerrainRadius = length(position.xz);');
+    // Distance haze: far ridges fade into blue-grey mist, which gives the range its depth.
+    shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying float vTerrainFade;\nvarying float vTerrainRadius;')
+      .replace('#include <color_fragment>',`#include <color_fragment>
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.105, 0.125, 0.145), smoothstep(700.0, 2350.0, vTerrainRadius) * 0.72);
+        diffuseColor.a *= vTerrainFade;`);
   };
   const mesh=new THREE.Mesh(geometry,material);
   mesh.receiveShadow=true;

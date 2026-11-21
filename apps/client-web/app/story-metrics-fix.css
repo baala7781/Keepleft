@@ -1,0 +1,33 @@
+/* Ensure story metrics are always visible and clickable */
+.kl-story-editor {
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.kl-share-metrics {
+  position: relative;
+  z-index: 11;
+}
+
+.kl-share-metrics label {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* Ensure 3D map doesn't interfere with controls */
+.kl-3d-map-host {
+  pointer-events: auto;
+}
+
+.kl-story-preview {
+  position: relative;
+  z-index: 1;
+}
+
+/* Only the drawn media ignores taps; the play button and sticker frame stay usable. */
+.kl-story-preview canvas,
+.kl-story-preview video,
+.kl-story-preview img {
+  pointer-events: none;
+}

@@ -9,6 +9,7 @@ import {worldThemes,type WorldTheme} from './world-theme';
 import {qualityBudget} from './quality-budget';
 import {LatestJob,localWorld,packForms,type WorldWork} from './background-work';
 import type {TreePlacement} from './vegetation-placement';
+import {loadTreeAssets} from './world-assets';
 
 export type VegetationStats={near:number;mid:number;far:number};
 export function treeLOD(pixels:number,previous?:TreeLOD):TreeLOD {
@@ -23,7 +24,7 @@ export function createVegetation(forms:BuildingForm[],data:WorldData,frame:Local
   let placement:ReturnType<typeof createVegetationPlacement>|undefined;
   const time={value:0},strength={value:0},bearing={value:0},pitch={value:1},viewport={value:new THREE.Vector2(1,1)};
   const makeMaterial=(cards:boolean)=>{
-    const material=cards?new THREE.MeshBasicMaterial({map:atlas,color:'#747c70',vertexColors:true,alphaTest:.28,side:THREE.DoubleSide,alphaToCoverage:true})
+    const material=cards?new THREE.MeshBasicMaterial({map:atlas,color:'#3d5f38',vertexColors:true,alphaTest:.28,side:THREE.DoubleSide,alphaToCoverage:true})
       :new THREE.MeshStandardMaterial({color:noir.canopy,vertexColors:true,roughness:1});
     material.onBeforeCompile=shader=>{
       shader.uniforms.treeTime=time;shader.uniforms.treeWind=strength;
@@ -58,7 +59,8 @@ export function createVegetation(forms:BuildingForm[],data:WorldData,frame:Local
         float leafNoise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
           return mix(mix(mix(leafHash(i),leafHash(i+vec3(1,0,0)),f.x),mix(leafHash(i+vec3(0,1,0)),leafHash(i+vec3(1,1,0)),f.x),f.y),
           mix(mix(leafHash(i+vec3(0,0,1)),leafHash(i+vec3(1,0,1)),f.x),mix(leafHash(i+vec3(0,1,1)),leafHash(i+vec3(1,1,1)),f.x),f.y),f.z);}`)
-        .replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.rgb*=mix(1.0,.78+.32*leafNoise(vTreeSurface*5.0),vFoliage);');
+        // Broad, faint clumps only. The earlier fine mottling looked like static from the air.
+        .replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.rgb*=mix(1.0,.9+.14*leafNoise(vTreeSurface*1.3),vFoliage);');
     };
     if(cards)material.onBeforeCompile=((compile)=>(shader,renderer)=>{
       compile(shader,renderer);
@@ -69,7 +71,7 @@ export function createVegetation(forms:BuildingForm[],data:WorldData,frame:Local
           diffuseColor*=mix(top,side,smoothstep(.25,.72,treePitch));
         #endif`);
     })(material.onBeforeCompile.bind(material));
-    material.customProgramCacheKey=()=>cards?'keepleft-vegetation-billboard-v7':'keepleft-vegetation-mesh-v2';
+    material.customProgramCacheKey=()=>cards?'keepleft-vegetation-billboard-v7':'keepleft-vegetation-mesh-v3';
     return material;
   };
   const solid=makeMaterial(false),cards=makeMaterial(true);
@@ -82,6 +84,18 @@ export function createVegetation(forms:BuildingForm[],data:WorldData,frame:Local
     return {kind,lod,mesh,count:0,matrices:new Float32Array(capacity*16),colors:new Float32Array(capacity*3),spreads:new Float32Array(capacity)};
   }));
   const batchLookup=new Map(batches.map(b=>[b.kind+'/'+b.lod,b]));
+  // Blender library trees replace near/mid procedural crowns in place: same meshes, instance
+  // buffers and materials, so placement, LOD and lifecycle are untouched. Far cards stay atlas-based.
+  let assetsChanged=false,disposed=false;
+  if(typeof window!=='undefined')loadTreeAssets().then(assets=>{
+    if(disposed)return;
+    for(const batch of batches){
+      if(batch.lod==='far')continue;
+      const geometry=assets.get(`${batch.kind}/${batch.lod}`);if(!geometry)continue;
+      batch.mesh.geometry.dispose();batch.mesh.geometry=geometry.clone();
+    }
+    assetsChanged=true;wake();
+  }).catch(()=>{/* Procedural trees remain when the library cannot load (offline first run). */});
   const matrix=new THREE.Object3D(),color=new THREE.Color();let previousLOD=new Map<string,TreeLOD>();
   let lastX=Infinity,lastY=Infinity,lastZoom=-1,lastQuality='',stats:VegetationStats={near:0,mid:0,far:0};
   let sampleX=Infinity,sampleY=Infinity,sampleQuality='',trees:TreePlacement[]=[];
@@ -120,7 +134,7 @@ export function createVegetation(forms:BuildingForm[],data:WorldData,frame:Local
       matrix.position.set(tree.x,elevation(tree.x,tree.y),-tree.y);matrix.rotation.set(0,lod==='far'?0:tree.rotation,0);matrix.scale.setScalar(tree.scale);matrix.updateMatrix();
       const index=batch.count++;matrix.matrix.toArray(batch.matrices,index*16);
       batch.spreads[index]=tree.canopySpread||1;
-      color.setScalar(.88+(tree.seed%100)/100*.2);color.toArray(batch.colors,index*3);nextStats[lod]++;
+      {const v=(tree.seed%100)/100,h=((tree.seed>>>7)%100)/100,l=.88+v*.2;color.setRGB(l*(.95+.09*h),l,l*(1.03-.09*h));}color.toArray(batch.colors,index*3);nextStats[lod]++;
       if(++processed%128===0)yield;
     }
     // Commit complete buffers together; partial forests are never displayed.
@@ -134,7 +148,11 @@ export function createVegetation(forms:BuildingForm[],data:WorldData,frame:Local
     }
     stats=nextStats;previousLOD=nextLOD;
   }
+  // A geometry swap must also refresh the manually updated shadow map once.
   const update=(x:number,y:number,zoom:number,quality:'battery'|'balanced'|'high')=>{
+    const swapped=assetsChanged;assetsChanged=false;return step(x,y,zoom,quality)||swapped;
+  };
+  const step=(x:number,y:number,zoom:number,quality:'battery'|'balanced'|'high')=>{
     const zoomStep=Math.round(zoom*4);
     const changed=lastQuality!==quality||lastZoom!==zoomStep||Math.hypot(lastX-x,lastY-y)>=(zoom>=17?24:90);
     if(changed){
@@ -160,7 +178,7 @@ export function createVegetation(forms:BuildingForm[],data:WorldData,frame:Local
     return false;
   };
   const animate=(seconds:number,enabled:boolean,cameraBearing=0,cameraPitch=58,width=1,height=1)=>{
-    time.value=enabled&&Number.isFinite(seconds)?seconds:0;strength.value=enabled?.14:0;
+    time.value=enabled&&Number.isFinite(seconds)?seconds:0;strength.value=0;
     bearing.value=cameraBearing*Math.PI/180;pitch.value=cameraPitch*Math.PI/180;
     viewport.value.set(Math.max(1,width),Math.max(1,height));
   };
@@ -179,5 +197,5 @@ export function createVegetation(forms:BuildingForm[],data:WorldData,frame:Local
     setElevation:(sample:(x:number,y:number)=>number)=>{elevation=sample;lastZoom=-1;},
     setTheme:(theme:WorldTheme)=>{solid.color.set(worldThemes[theme].palette.canopy);cards.color.set(worldThemes[theme].farCanopy);},
     // Geometry/material/instance buffers are released by the owner scene's traversal.
-    dispose:()=>{background?.dispose();packing=undefined;trees=[];atlas.dispose();previousLOD.clear();}};
+    dispose:()=>{disposed=true;background?.dispose();packing=undefined;trees=[];atlas.dispose();previousLOD.clear();}};
 }

@@ -1294,32 +1294,59 @@ a {
 }
 
 .kl-route-move {
-  border: 1px dashed rgba(227, 59, 99, 0.45);
-  border-radius: 8px;
-  background: transparent;
-  cursor: grab;
-  padding: 0;
-  position: relative;
-  transition: border-color 0.15s ease;
-}
-
-.kl-route-move {
   position: absolute;
+  padding: 0;
   cursor: grab;
   touch-action: none;
   box-sizing: border-box;
-  border: 1.5px dashed rgba(227, 59, 99, 0.7);
+  transform-origin: center center;
+  border: 1.5px dashed rgba(255, 255, 255, 0.75);
   border-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18);
   transition: border-color 0.15s ease;
 }
 
-.kl-route-move:hover {
-  border-color: rgba(227, 59, 99, 0.95);
+.kl-route-move:hover,
+.kl-route-move:active {
+  border-color: #ffffff;
 }
 
 .kl-route-move:active {
   cursor: grabbing;
-  border-color: #e33b63;
+}
+
+/* Scale-and-rotate handle: one target, 44 px for touch, drawn smaller. */
+.kl-placement-handle {
+  position: absolute;
+  right: -22px;
+  bottom: -22px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+  color: #e33b63;
+}
+
+.kl-placement-handle::before {
+  content: '';
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: transform 0.12s ease-out;
+}
+
+.kl-placement-handle svg {
+  position: relative;
+}
+
+.kl-placement-handle:active::before {
+  transform: scale(1.12);
 }
 
 .kl-route-move:focus-visible {
@@ -1832,7 +1859,8 @@ a {
 }
 
 .atlas-vignette {
-  background: linear-gradient(180deg, #060708eb 0%, #070809a0 12%, transparent 30%, transparent 67%, #08090be0 100%);
+  /* Only a short band behind the brand text; the day world must stay bright. */
+  background: linear-gradient(180deg, #060708b8 0%, #07080955 9%, transparent 19%, transparent 72%, #08090bb0 100%);
 }
 
 .atlas-brand strong {
@@ -3055,9 +3083,55 @@ a {
   color: #fff;
 }
 
+.kl-stats-hero {
+  padding: 32px;
+  border: 1px solid #424246;
+  border-top: 3px solid #e33b63;
+  border-radius: 18px;
+  background: #111214;
+  margin-bottom: 20px;
+}
+
+.kl-stats-hero .kl-settings-eyebrow {
+  margin: 0 0 8px;
+}
+
+.kl-stats-hero h2 {
+  font: 650 clamp(1.4rem, 3vw, 1.8rem) var(--font-body);
+  letter-spacing: -.02em;
+  margin: 0 0 20px;
+}
+
+.kl-stats-hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  margin: 24px 0 20px;
+}
+
+.kl-stats-hero-metrics > div {
+  display: grid;
+  gap: 6px;
+}
+
+.kl-stats-hero-metrics strong {
+  font: 600 clamp(1.3rem, 2.5vw, 1.8rem) var(--font-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.kl-stats-hero-metrics span {
+  color: #aaa9ad;
+  font-size: .76rem;
+}
+
+.kl-stats-hero-metrics small {
+  font-size: .65rem;
+  color: #8e8c90;
+}
+
 .kl-stats-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(280px, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 16px;
 }
 
@@ -3360,6 +3434,17 @@ a {
 @media(max-width:700px) {
   .kl-stats-page {
     padding: calc(20px + env(safe-area-inset-top)) 20px 0;
+  }
+
+  .kl-stats-hero {
+    padding: 24px 20px;
+    margin-bottom: 16px;
+  }
+
+  .kl-stats-hero-metrics {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin: 20px 0 16px;
   }
 
   .kl-stats-layout {

@@ -4,6 +4,7 @@ import type {WorldData} from './osm';
 import {namedPlaces} from './labels';
 import {noir} from '../renderer/noir-palette';
 import {roadContext} from './roads';
+import {roadColor} from '../renderer/world-theme';
 
 export function mapStyle(baseUrl:string,nearby:NeighborhoodWorld|null,data:WorldData):StyleSpecification {
   void baseUrl;
@@ -20,13 +21,13 @@ export function mapStyle(baseUrl:string,nearby:NeighborhoodWorld|null,data:World
     {id:'water',type:'fill',source:'atlas',filter:['==',['get','kind'],'water'],paint:{'fill-color':noir.water}},
     {id:'shore',type:'line',source:'atlas',filter:['==',['get','kind'],'water'],paint:{'line-color':noir.shore,'line-width':1,'line-opacity':0.65}},
     {id:'road-edges',type:'line',source:'world-roads',filter:['!=',['get','tunnel'],true],layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':noir.roadEdge,'line-opacity':.65,'line-width':['interpolate',['exponential',2],['zoom'],13,['*',['get','edgePixels'],8192],24,['*',['get','edgePixels'],16777216]]}},
-    {id:'roads',type:'line',source:'world-roads',filter:['!=',['get','tunnel'],true],layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':noir.road,'line-width':['interpolate',['exponential',2],['zoom'],13,['*',['get','widthPixels'],8192],24,['*',['get','widthPixels'],16777216]]}},
+    {id:'roads',type:'line',source:'world-roads',filter:['!=',['get','tunnel'],true],layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':roadColor(noir),'line-width':['interpolate',['exponential',2],['zoom'],13,['*',['get','widthPixels'],8192],24,['*',['get','widthPixels'],16777216]]}},
     // Screen-space width and round joins stay legible at turns and U-turns.
     // The 3D layer is above these ground lines; no route is painted onto a roof.
-    {id:'route-halo',type:'line',source:'activity-route',maxzoom:16.2,filter:['!=',['get','gap'],true],layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':noir.halo,'line-width':10,'line-blur':4,'line-opacity':.35}},
-    {id:'route-outline',type:'line',source:'activity-route',maxzoom:16.2,filter:['!=',['get','gap'],true],layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':noir.route,'line-width':4.5}},
-    {id:'route-stroke',type:'line',source:'activity-route',maxzoom:16.2,filter:['!=',['get','gap'],true],layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':noir.routeCore,'line-width':1.2}},
-    {id:'route-gap',type:'line',source:'activity-route',maxzoom:16.2,filter:['==',['get','gap'],true],layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':noir.route,'line-width':3,'line-dasharray':[1,1.5]}},
+    {id:'route-halo',type:'line',source:'activity-route',maxzoom:16.2,filter:['!=',['get','gap'],true],layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':noir.halo,'line-width':14,'line-blur':4,'line-opacity':.35}},
+    {id:'route-outline',type:'line',source:'activity-route',maxzoom:16.2,filter:['!=',['get','gap'],true],layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':noir.route,'line-width':8}},
+    {id:'route-stroke',type:'line',source:'activity-route',maxzoom:16.2,filter:['!=',['get','gap'],true],layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':noir.routeCore,'line-width':2.4}},
+    {id:'route-gap',type:'line',source:'activity-route',maxzoom:16.2,filter:['==',['get','gap'],true],layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':noir.route,'line-width':4.5,'line-dasharray':[1,1.5]}},
     // Omit a glyph URL: MapLibre 6 generates local-font labels without another network service.
     {id:'place-names',type:'symbol',source:'named-places',minzoom:14.5,maxzoom:20.5,
       filter:['>=',['zoom'],['get','minZoom']],

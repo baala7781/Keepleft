@@ -1,0 +1,46 @@
+/* Day/Night theme toggle button */
+.kl-theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--surface-line);
+  background: var(--surface-panel);
+  color: var(--text-main);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.kl-theme-toggle:hover {
+  border-color: var(--accent-primary);
+  opacity: 0.9;
+}
+
+.kl-theme-toggle:active {
+  transform: scale(0.98);
+}
+
+.kl-theme-toggle.kl-compact {
+  padding: 0;
+  justify-content: center;
+}
+
+.kl-theme-toggle.kl-compact span {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .kl-theme-toggle.kl-compact span {
+    display: inline;
+    margin-left: 0.25rem;
+  }
+  .kl-theme-toggle.kl-compact {
+    padding: 0 0.75rem;
+  }
+}
+

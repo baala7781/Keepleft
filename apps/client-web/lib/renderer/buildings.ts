@@ -39,7 +39,13 @@ export function buildingForms(data:WorldData,frame:LocalFrame):BuildingForm[]{
   });
 }
 
+// Neutral grey buildings with tiny value variation for depth. The theme's
+// material tint turns them whitish grey by day and blackish grey by night.
+const roofTones=['#c4c5c6','#c6c7c8','#c2c3c4'].map(value=>new THREE.Color(value));
+const wallTones=['#ebebea','#edeceb','#e9e9e8','#ececeb'].map(value=>new THREE.Color(value));
 const tint=(value:unknown,fallback:string)=>new THREE.Color(typeof value==='string'&&/^#[0-9a-f]{6}$/i.test(value)?value:fallback);
+// Keep a profile's brightness but drop its hue, so every building stays grey.
+const lightness=(c:THREE.Color)=>(c.r+c.g+c.b)/3;
 function colorize(geometry:THREE.BufferGeometry,color:THREE.Color){
   const colors=new Float32Array(geometry.attributes.position.count*3);
   for(let i=0;i<colors.length;i+=3){colors[i]=color.r;colors[i+1]=color.g;colors[i+2]=color.b;}
@@ -134,12 +140,41 @@ function flatRoofRim(form:BuildingForm,base:number,depth:number){
   const strips:Polygon[]=[];
   for(const ring of form.polygon)for(let i=1;i<ring.length;i++){
     const a=ring[i-1],b=ring[i],dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy);if(length<.01)continue;
-    const nx=-dy/length*.28,ny=dx/length*.28;
+    const nx=-dy/length*.42,ny=dx/length*.42;
     strips.push([[[a[0]+nx,a[1]+ny],[b[0]+nx,b[1]+ny],[b[0]-nx,b[1]-ny],[a[0]-nx,a[1]-ny],[a[0]+nx,a[1]+ny]]]);
   }
   if(!strips.length)return [];
   const rim=polygonClipping.intersection(form.polygon,polygonClipping.union(strips[0],...strips.slice(1)));
   return rim.map(p=>new THREE.ExtrudeGeometry(asShape(p),{depth,steps:1,bevelEnabled:false}).rotateX(-Math.PI/2).translate(0,base,0));
+}
+/** True when a roof point is inside the footprint and at least `margin` from every edge. */
+function roofSpot(polygon:Polygon,x:number,y:number,margin:number){
+  let inside=false;
+  for(const ring of polygon)for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+    const [ax,ay]=ring[i],[bx,by]=ring[j];
+    if((ay>y)!==(by>y)&&x<(bx-ax)*(y-ay)/(by-ay)+ax)inside=!inside;
+    const dx=bx-ax,dy=by-ay,l=dx*dx+dy*dy||1,t=Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/l));
+    if(Math.hypot(ax+dx*t-x,ay+dy*t-y)<margin)return false;
+  }
+  return inside;
+}
+const tankColor=new THREE.Color('#6f8794'),fittingColor=new THREE.Color('#9aa2a4');
+/** Small stylized rooftop clutter (stair head, water tanks, AC boxes) for nearby flat roofs. */
+function roofProps(form:BuildingForm,top:number,seed:number,wallColor:THREE.Color,lod:BuildingLOD){
+  const b=form.bounds,w=b.max.x-b.min.x,d=b.max.y-b.min.y;if(w*d<45||Math.min(w,d)<5)return [];
+  const near=lod==='near',segments=near?10:6;
+  const out:THREE.BufferGeometry[]=[];let s=seed||1;
+  const rand=()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296;};
+  const place=(margin:number)=>{for(let n=0;n<8;n++){const x=b.min.x+w*(.15+.7*rand()),y=b.min.y+d*(.15+.7*rand());if(roofSpot(form.polygon,x,y,margin))return [x,y] as const;}};
+  const put=(g:THREE.BufferGeometry,x:number,y:number,h:number,color:THREE.Color)=>out.push(colorize(g.toNonIndexed().translate(x,top+h/2,-y),color));
+  const head=place(2.2);
+  if(head){const hw=3.4+rand()*1.6,hd=3+rand()*1.4,hh=2.8;put(new THREE.BoxGeometry(hw,hh,hd).rotateY(rand()*Math.PI),head[0],head[1],hh,wallColor.clone().multiplyScalar(.96));}
+  const tanks=w*d>260?2:1;
+  for(let i=0;i<tanks;i++){const at=place(1.4);if(at)put(new THREE.CylinderGeometry(.85,.85,1.5,segments),at[0],at[1],1.5,tankColor);}
+  // Mid-distance roofs keep the stair head and tanks that read from afar; small AC boxes stay near-only.
+  const units=near?Math.min(3,Math.floor(w*d/150)):0;
+  for(let i=0;i<units;i++){const at=place(1);if(at)put(new THREE.BoxGeometry(1.1,.7,.8).rotateY(rand()*Math.PI),at[0],at[1],.7,fittingColor);}
+  return out;
 }
 export function buildBuildingGeometry(forms:BuildingForm[],lod:BuildingLOD='near'){
   const pieces:THREE.BufferGeometry[]=[];
@@ -147,17 +182,28 @@ export function buildBuildingGeometry(forms:BuildingForm[],lod:BuildingLOD='near
     const p=form.properties,height=Math.max(.1,Math.min(300,Number(p.height)||12)),min=Math.max(0,Math.min(height-.1,Number(p.minHeight)||0));
     const style=buildingProfile(p),supported=lod!=='far'&&['gabled','hipped','pyramidal','skillion','round','dome'].includes(String(p.roofShape));
     const rh=supported?Math.max(0,Math.min((height-min)*.45,Number(p.roofHeight)||0)):0;
-    const rim=lod==='near'&&!supported&&p.roofShape==='flat'&&p.heightSource==='estimated'&&!p.buildingPart&&min===0&&height-min>3?.28:0;
+    const rim=lod!=='far'&&!supported&&p.roofShape==='flat'&&!p.buildingPart&&min===0&&height-min>3?.7:0;
     const eave=height-rh-rim;
     const wall=new THREE.ExtrudeGeometry(asShape(form.polygon),{depth:eave-min,bevelEnabled:false,steps:1,curveSegments:1});wall.rotateX(-Math.PI/2);wall.translate(0,min,0);
     let seed=0;for(const character of String(form.id))seed=(Math.imul(seed,31)+character.charCodeAt(0))>>>0;
     const shade=.84+(seed%17)/100;
-    colorize(wall,tint(undefined,style.wall).multiplyScalar(shade));
-    const colors=wall.attributes.color,normals=wall.attributes.normal,roofColor=tint(undefined,style.roof).multiplyScalar(shade);
-    for(let i=0;i<colors.count;i++)if(normals.getY(i)>.8)colors.setXYZ(i,roofColor.r,roofColor.g,roofColor.b);
+    // A per-building grey of slightly different value so a block isn't one flat slab.
+    const tone=wallTones[(seed>>>5)%wallTones.length];
+    const wallColor=tone.clone().multiplyScalar(lightness(tint(undefined,style.wall))*shade);
+    colorize(wall,wallColor);
+    const colors=wall.attributes.color,normals=wall.attributes.normal,positions=wall.attributes.position,roofColor=roofTones[(seed>>>9)%roofTones.length].clone().multiplyScalar(Math.min(1,lightness(tint(undefined,style.roof))*1.4)*shade);
+    // Walls darken toward the street, like soft contact shadow. It grounds each building on the road
+    // instead of floating flat. The full ramp spans at most the first 14 m, so towers stay lit above.
+    const ramp=Math.max(.1,Math.min(14,eave-min));
+    for(let i=0;i<colors.count;i++){
+      if(normals.getY(i)>.8){const inset=rim?.9:1;colors.setXYZ(i,roofColor.r*inset,roofColor.g*inset,roofColor.b*inset);continue;}
+      const k=THREE.MathUtils.smoothstep(positions.getY(i),min,min+ramp),g=.74+.26*k;
+      colors.setXYZ(i,wallColor.r*g,wallColor.g*g,wallColor.b*g);
+    }
     pieces.push(wall);
-    if(rim)try{pieces.push(...flatRoofRim(form,eave,rim).map(g=>colorize(g,tint(undefined,style.wall).multiplyScalar(shade*.86))));}catch{/* The roof slab remains valid if malformed edges cannot produce a coping. */}
-    if(rh>0)try{pieces.push(...roofGeometry(form,eave,rh,lod).map(g=>colorize(g,tint(undefined,style.roof).multiplyScalar(shade))));}catch{/* Keep the eave slab when malformed source roofs cannot be triangulated. */}
+    if(rim)try{const coping=wallColor.clone().multiplyScalar(1.12);pieces.push(...flatRoofRim(form,eave,rim).map(g=>colorize(g,coping)));}catch{/* The roof slab remains valid if malformed edges cannot produce a coping. */}
+    if(rim)pieces.push(...roofProps(form,eave,seed,wallColor,lod));
+    if(rh>0)try{pieces.push(...roofGeometry(form,eave,rh,lod).map(g=>colorize(g,roofColor)));}catch{/* Keep the eave slab when malformed source roofs cannot be triangulated. */}
   }
   if(!pieces.length)return new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute([],3)).setAttribute('color',new THREE.Float32BufferAttribute([],3));
   const merged=mergeGeometries(pieces);pieces.forEach(g=>g.dispose());if(!merged)throw new Error('Unable to assemble building geometry');return merged;

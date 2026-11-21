@@ -104,12 +104,14 @@ it('excludes water, building canopies, roads and mapped open clearings',()=>{
     }
   }
 });
-it('plants roadside trees only with explicit tree-lined evidence, preserving the side and bridge exclusion',()=>{
+it('lines ordinary streets with trees unless tagged otherwise, preserving the side and bridge exclusion',()=>{
   const sample=(extra:Record<string,string>)=>{
     const data=normalizeOSM({elements:[{type:'way',id:1,tags:{highway:'residential',...extra},geometry:[{lon:-.002,lat:0},{lon:.002,lat:0}]}]});
     return createVegetationPlacement([],data,frame).sample(0,0,600,1800);
   };
-  expect(sample({})).toEqual([]);
+  const both=sample({});expect(both.some(t=>t.y>0)&&both.some(t=>t.y<0)).toBe(true);
+  expect(sample({tree_lined:'no'})).toEqual([]);
+  expect(sample({highway:'service'})).toEqual([]);
   const left=sample({tree_lined:'left'});expect(left.length).toBeGreaterThan(10);expect(left.every(t=>t.y>0)).toBe(true);
   expect(sample({tree_lined:'yes',bridge:'yes'})).toEqual([]);
   expect(sample({tree_lined:'yes',tunnel:'yes'})).toEqual([]);

@@ -25,8 +25,8 @@ export function ReplayControls({replay,snapshot,onClose,compact=false}:{replay:R
       <div className="kl-replay-speed" role="group" aria-label="Replay speed">
         {replaySpeeds.map(speed=><button type="button" key={speed} aria-pressed={replay.rate===speed} aria-label={`${speed} times speed`} onClick={()=>replay.setSpeed(speed)}>{speed}×</button>)}
       </div>
-      {!compact&&<Button variant="outline" aria-label="Restart replay" onClick={()=>{replay.pause();replay.seek(0);}}><RotateCcw/></Button>}
-      <Button variant="outline" aria-label="Exit replay" onClick={onClose}><X/><span>Exit</span></Button>
+      {!compact&&<Button variant="outline" className="kl-icon-btn" aria-label="Restart replay" onClick={()=>{replay.pause();replay.seek(0);}}><RotateCcw/></Button>}
+      <Button variant="outline" className="kl-icon-btn" aria-label="Exit replay" onClick={onClose}><X/></Button>
     </div>
     {replay.inGap&&<small>Pause or GPS gap · position held until the next recorded fix</small>}
     {replay.legacyTiming&&<small>Older recording · playback timing is approximate.</small>}

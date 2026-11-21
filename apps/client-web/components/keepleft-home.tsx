@@ -5,6 +5,7 @@ import {Button} from '@/components/ui/button';
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription} from '@/components/ui/dialog';
 import {createActivityStore} from '@/lib/native/platform';
 import {type ActivityStore,type ActivitySummary, type SavedActivity, routeGeoJSON} from '@/lib/tracking/storage';
+import {registerMapPrefetch} from '@/lib/geodata/map-prefetch';
 import type {AcceptedFix} from '@/lib/tracking/location';
 import {formatActivityTime, activityStats} from '@/lib/tracking/activity-stats';
 import {downloadRoute} from './activity-library';
@@ -50,6 +51,11 @@ export function KeepleftHome({onOpen,onStats}: {onOpen?: (activity?: SavedActivi
     finally { setLoading(false); }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    if(!store.current)return;
+    return registerMapPrefetch(store.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
   const week = useMemo(() => athleteStats(activities,loading?new Date(2026,0,1):new Date()), [activities,loading]);
   const latestStats=latest?activityStats(latest):undefined;
   const weekMax=Math.max(1,...week.days.map(day=>day.distanceM));
@@ -91,8 +97,10 @@ export function KeepleftHome({onOpen,onStats}: {onOpen?: (activity?: SavedActivi
           <p>{latest ? new Date(latest.startedAtMs).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'}) : 'Run your route. Come back and see it in motion.'}</p>
           {latest ? <>
             <div className="kl-journey-metrics"><div><span>Distance</span><strong>{latestStats?.distanceKm.toFixed(2)} <small>km</small></strong></div><div><span>Duration</span><strong>{latestStats?.activeTime}</strong></div><div><span>{latest.activityType==='cycle'?'Avg. speed':'Avg. pace'}</span><strong>{latest.activityType==='cycle'?latestStats?.averageSpeedKph.toFixed(1):latestStats?.averagePace.replace(' /km','')}<small> {latest.activityType==='cycle'?'km/h':'/km'}</small></strong></div></div>
-            <Button className="kl-action" onClick={() => open(latest)} disabled={!latest.samples.length}><Play/>Replay this run</Button>
-            <Button className="kl-social-post" variant="outline" onClick={()=>setStory(latest)} disabled={!latest.samples.length}><Share2/>Create social post</Button>
+            <div className="kl-journey-actions">
+              <Button className="kl-action" onClick={() => open(latest)} disabled={!latest.samples.length}><Play/>Replay</Button>
+              <Button variant="outline" onClick={()=>setStory(latest)} disabled={!latest.samples.length}><Share2/>Create post</Button>
+            </div>
           </> : <Button variant="outline" onClick={() => open()}><Mountain/>Open the world</Button>}
         </div>
         <div className="kl-journey-portrait">
@@ -100,11 +108,11 @@ export function KeepleftHome({onOpen,onStats}: {onOpen?: (activity?: SavedActivi
         </div>
       </section>
       <section id="run-stats" className="kl-week-summary" aria-label="Last seven days">
-        <div className="kl-section-heading"><h2>Last seven days</h2><small>{week.activeThisWeek} activities · {(week.weekDistanceM/1000).toFixed(1)} km</small></div>
+        <div className="kl-section-heading"><h2>Last seven days</h2><small>{week.activeThisWeek} {week.activeThisWeek===1?'activity':'activities'} · {(week.weekDistanceM/1000).toFixed(1)} km</small></div>
         <div className="kl-week-content"><div className="kl-week-bars">{week.days.map(day=><div key={day.key}><div className="kl-week-track"><i style={{height:`${Math.max(day.distanceM?8:3,day.distanceM/weekMax*100)}%`}} data-active={day.distanceM>0}/></div><span>{day.label}</span><span className="sr-only">{(day.distanceM/1000).toFixed(2)} km</span></div>)}</div><div className="kl-week-total"><Footprints/><strong>{(week.weekDistanceM/1000).toFixed(1)}</strong><span>km</span><small>Seven-day total</small></div></div>
       </section>
       <section id="journal" className="kl-journal" aria-labelledby="journal-title" aria-busy={loading}>
-        <div className="kl-journal-heading"><h2 id="journal-title">Earlier activities</h2><Button variant="ghost" aria-label="Refresh saved runs" disabled={loading || busy} onClick={() => void refresh()}><RefreshCw size={18}/></Button></div>
+        <div className="kl-journal-heading"><h2 id="journal-title">Earlier activities</h2><Button variant="ghost" aria-label="Refresh saved activities" disabled={loading || busy} onClick={() => void refresh()}><RefreshCw size={18}/></Button></div>
         <p className="kl-storage-caption">Saved on this device. Export a backup before clearing app data.</p>
         {message && <p className="kl-feedback" role="status">{message}</p>}
         {loading ? <div className="kl-history-loading" role="status">Loading your journeys…</div> : earlierActivities.length ? <ol className="kl-history">
@@ -119,12 +127,8 @@ export function KeepleftHome({onOpen,onStats}: {onOpen?: (activity?: SavedActivi
           </li>)}
         </ol> : <div className="kl-history-empty"><p>{activities.length?'No earlier activities yet.':'No saved activities yet.'}</p><span>{activities.length?'Your next completed activity will appear here.':'Your completed activities will appear here, ready to replay.'}</span></div>}
       </section>
-      <footer className="kl-home-footer" style={{padding:'24px 0 16px',textAlign:'center',fontSize:'0.75rem',color:'#666',display:'flex',justifyContent:'center',gap:'16px'}}>
-        <a href="/terms" style={{color:'#888',textDecoration:'none'}}>Terms</a>
-        <span aria-hidden="true">·</span>
-        <a href="/about" style={{color:'#888',textDecoration:'none'}}>About &amp; Licenses</a>
-        <span aria-hidden="true">·</span>
-        <a href="/privacy" style={{color:'#888',textDecoration:'none'}}>Privacy Policy</a>
+      <footer className="kl-home-footer kl-footer-links">
+        <a href="/privacy">Privacy</a><span aria-hidden="true">·</span><a href="/terms">Terms</a><span aria-hidden="true">·</span><a href="/about">Licenses</a>
       </footer>
     </div>
     <nav className="kl-bottom-nav" aria-label="Main navigation"><a href="/" aria-current="page"><House/>Home</a>{onStats?<button onClick={onStats}><ChartNoAxesColumn/>Stats</button>:<a href="/stats"><ChartNoAxesColumn/>Stats</a>}<button onClick={()=>open()}><Compass/>Explore</button></nav>
@@ -134,8 +138,8 @@ export function KeepleftHome({onOpen,onStats}: {onOpen?: (activity?: SavedActivi
         {deleting ? <div className="kl-detail-actions"><Button variant="outline" disabled={busy} onClick={() => setDeleting(false)}>Keep run</Button><Button variant="destructive" disabled={busy} onClick={() => void remove()}>{busy ? 'Deleting…' : 'Delete run'}</Button></div> : <>
           <RoutePortrait samples={selected.samples}/>
           <div className="kl-detail-stats"><div><span>Distance</span><strong>{stats.distanceKm.toFixed(2)} km</strong></div><div><span>Time</span><strong>{stats.activeTime}</strong></div><div><span>{selected.activityType==='cycle'?'Average speed':'Average pace'}</span><strong>{selected.activityType==='cycle'?`${stats.averageSpeedKph.toFixed(1)} km/h`:stats.averagePace}</strong></div></div>
-          <Button variant="outline" disabled={!selected.samples.length} onClick={()=>{setStory(selected);setSelected(undefined);}}><Share2/>Create social post</Button>
-          <div className="kl-detail-actions"><Button className="kl-action" disabled={!selected.samples.length} onClick={() => open(selected)}><Play/>Replay run</Button><Button variant="outline" onClick={() => {downloadRoute(routeGeoJSON(selected.samples,selected.snapshot));setMessage('Route export opened.');}}><Download/>Export</Button><Button variant="ghost" aria-label="Delete run" onClick={() => setDeleting(true)}><Trash2/></Button></div>
+          <div className="kl-detail-actions"><Button className="kl-action" disabled={!selected.samples.length} onClick={() => open(selected)}><Play/>Replay</Button><Button variant="outline" disabled={!selected.samples.length} onClick={()=>{setStory(selected);setSelected(undefined);}}><Share2/>Create post</Button></div>
+          <div className="kl-detail-actions"><Button variant="ghost" onClick={() => {downloadRoute(routeGeoJSON(selected.samples,selected.snapshot));setMessage('Route export opened.');}}><Download/>Export route</Button><Button variant="ghost" className="kl-detail-delete" onClick={() => setDeleting(true)}><Trash2/>Delete</Button></div>
         </>}
         {message&&<p className="kl-feedback" role="status">{message}</p>}
       </DialogContent>}

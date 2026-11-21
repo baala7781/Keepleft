@@ -20,6 +20,7 @@ final class RunFilter {
         final String reason;
         Result(boolean accepted,boolean discontinuity,double distance,String reason){this.accepted=accepted;this.discontinuity=discontinuity;this.distance=distance;this.reason=reason;}
     }
+    double maximumSpeed(){return maximumSpeed;}
     private Fix anchor;
     private long lastTime;
     private boolean discontinuity=true;
@@ -34,7 +35,9 @@ final class RunFilter {
         double seconds=anchor==null?0:(f.time-anchor.time)/1000.0;
         double distance=anchor==null?0:distance(anchor,f);
         boolean gap=anchor!=null&&seconds>20;
-        if(anchor!=null&&!gap&&anchor.accuracy>=f.accuracy*2&&distance<=anchor.accuracy){anchor=f;lastTime=f.time;discontinuity=false;pending=null;speedEstimate=0;return new Result(true,true,0,"refinement");}
+        // A sharper lock inside the old error circle moves the reference without
+        // counting distance or cutting the line; GPS warm-up does this repeatedly.
+        if(anchor!=null&&!gap&&anchor.accuracy>=f.accuracy*2&&distance<=anchor.accuracy){anchor=f;lastTime=f.time;discontinuity=false;pending=null;speedEstimate=0;return new Result(true,false,0,"refinement");}
         if(anchor!=null&&!gap&&distance/Math.max(.001,seconds)>maximumSpeed)return reject("jump");
         if(anchor!=null&&!gap&&distance>10&&distance/Math.max(.001,seconds)>Math.max(spikeSpeed,speedEstimate*2.5+1)){
             Fix candidate=pending;pending=f;lastTime=f.time;

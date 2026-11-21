@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "render-check",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "test:render"],
+      "port": 3101,
+      "url": "http://localhost:3101/tools/render-check.html?fixture=hussain-sagar&pitch=65&bearing=20&theme=day"
+    }
+  ]
+}

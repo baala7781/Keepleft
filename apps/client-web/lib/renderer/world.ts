@@ -18,7 +18,9 @@ import {applyMapTheme,worldThemes,type WorldTheme} from './world-theme';
 import {visualRoute} from '../tracking/visual-route';
 import {activityProfiles} from '../tracking/tracking-config';
 import {createRoadWorld} from './roads';
+import {createWaterWorld} from './water';
 import {createRouteRibbon} from './route-ribbon';
+import {applyAssembly} from './world-assembly';
 import {createBuildingWorld} from './building-world';
 import {loadDemoTerrain} from './demo-terrain';
 import demoManifest from '../../public/fixtures/madhyamaheshwar/manifest.json';
@@ -74,6 +76,7 @@ export function createWorldLayer(
   let buildings=createBuildingWorld(forms,work,wake);root.add(buildings.group);
   const details=createNearbyDetails(forms,data,worldFrame,work,wake);root.add(details.group);
   let roads=createRoadWorld(data,worldFrame,forms,work,wake);root.add(roads.group);
+  const water=createWaterWorld(data,worldFrame);root.add(water.group);
   // Only the authored demo uses the bundled DEM. Recorded GPS worlds remain on
   // the existing flat render plane until terrain draping is implemented there.
   const mountainDemo=runtime.source==='demo'&&Math.abs(origin.lng-demoManifest.origin.lng)<.0001&&Math.abs(origin.lat-demoManifest.origin.lat)<.0001;
@@ -81,7 +84,7 @@ export function createWorldLayer(
   if(mountainDemo)void loadDemoTerrain(worldFrame).then(({mesh,heightAt})=>{
     if(removed){mesh.geometry.dispose();(mesh.material as THREE.Material).dispose();return;}
     terrainHeight=heightAt;details.setElevation(heightAt);root.add(mesh);map?.triggerRepaint();
-  }).catch(()=>{});
+  }).catch(e=>{console.warn('[World] Demo terrain load failed (non-blocking):',e instanceof Error?e.message:'unknown error');});
   const ribbon=createRouteRibbon(worldFrame);root.add(ribbon.group);
   let blocks=cameraBlocks(forms);
   const needsRoadPresentation=runtime.source!=='demo'&&!runtime.isDemoReplay&&runtime.activityType!=='cycle'&&runtime.roadAlignmentRecommended!==false;
@@ -135,7 +138,7 @@ export function createWorldLayer(
     hemisphere.color.set(value.sky);hemisphere.groundColor.set(value.bounce);hemisphere.intensity=value.ambient;
     sun.color.set(value.sun);sun.intensity=value.sunIntensity;
     ground.material.opacity=value.shadow;renderer.toneMappingExposure=value.exposure;
-    details.setTheme(theme);roads.setTheme(theme);applyMapTheme(map,theme);map.triggerRepaint();
+    details.setTheme(theme);roads.setTheme(theme);water.setTheme(theme);applyMapTheme(map,theme);map.triggerRepaint();
   };
   let pendingCamera:(()=>void)|undefined;
   let shadowAt=0;
@@ -183,6 +186,7 @@ export function createWorldLayer(
       root.remove(roads.group);roads.dispose();roads=nextRoads;root.add(roads.group);
       root.remove(buildings.group);buildings.dispose();buildings=nextBuildings;buildings.setTheme(controls.worldTheme||'day');root.add(buildings.group);
       work?.dispose();work=nextWork;
+      water.replace(next);
       blocks=nextBlocks;routePresentation=nextPresentation;committed=true;
       renderer.shadowMap.needsUpdate=true;map.triggerRepaint();
       }finally{if(!committed){nextBuildings?.dispose();nextRoads?.dispose();nextWork?.dispose();}}
@@ -241,7 +245,7 @@ export function createWorldLayer(
       if(athlete)athlete.group.visible=!!motion&&thirdPerson&&!controls.hideAthlete;
       const isReplay=runtime.source==='replay';
       const zoom=map.getZoom();
-      const baseDot=7+Math.max(0,Math.min(5,(zoom-14)*1.2));
+      const baseDot=18+Math.max(0,Math.min(6,(zoom-14)*1.4));
       const dotPx=runtime.source==='gps'?(baseDot+2):baseDot;
       dotMaterial.uniforms.size.value=dotPx*Math.min(map.getCanvas().width/Math.max(1,map.getCanvas().clientWidth),2.0);
       let trailPoints:typeof raw=[];
@@ -275,7 +279,10 @@ export function createWorldLayer(
       frameCosts.roads=Math.max(frameCosts.roads,performance.now()-phaseAt);phaseAt=performance.now();
       ribbon.setView(map.getZoom(),origin.lat);
       if(details.update(detailPoint.x,detailPoint.y,map.getZoom(),controls.quality))renderer.shadowMap.needsUpdate=true;
+      water.animate(now/1000,!controls.reducedMotion&&!controls.staticScene&&controls.quality!=='battery');
+      ribbon.animate(now/1000);
       details.animate(now/1000,!controls.reducedMotion&&!controls.staticScene&&controls.quality!=='battery',map.getBearing(),map.getPitch(),map.getCanvas().width,map.getCanvas().height);
+      if(controls.assembly&&applyAssembly(controls.assembly,{buildings:buildings.group,details:details.group,vegetation:details.vegetation.meshes,water:water.group}))renderer.shadowMap.needsUpdate=true;
       frameCosts.details=Math.max(frameCosts.details,performance.now()-phaseAt);
       const moving=snapshot.status==='recording'&&snapshot.speedMps>0;
       if (floating.update(sample)){renderer.shadowMap.needsUpdate=true;shadowAt=0;}

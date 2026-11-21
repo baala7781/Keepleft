@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {DEFAULT_PLACEMENT,constrainPlacement,movePlacement,placementRect,previewDelta,resizePlacement,keyboardPlacement} from './placement';
+import {DEFAULT_PLACEMENT,constrainPlacement,movePlacement,placementRect,previewDelta,resizePlacement,keyboardPlacement,rotatePlacement,scalePlacement,snapRotation} from './placement';
 describe('photo route placement',()=>{
   it('preserves the original composition until the user moves it',()=>{expect(placementRect(DEFAULT_PLACEMENT)).toEqual({left:70,top:360,width:580,height:580});});
   it('moves in both directions without changing route scale or input',()=>{const original={...DEFAULT_PLACEMENT};expect(movePlacement(original,30,-100)).toEqual({x:390,y:550,size:580});expect(original).toEqual(DEFAULT_PLACEMENT);});
@@ -21,4 +21,12 @@ describe('photo route placement',()=>{
     expect(keyboardPlacement(DEFAULT_PLACEMENT,'Tab')).toBeUndefined();
   });
   it('sanitizes invalid dimensions before rendering',()=>{expect(constrainPlacement({x:NaN,y:Infinity,size:NaN})).toEqual(DEFAULT_PLACEMENT);});
+  it('scales about the centre and keeps the sticker on the photo',()=>{
+    expect(scalePlacement(DEFAULT_PLACEMENT,300)).toEqual({x:360,y:650,size:300});
+    expect(scalePlacement({x:100,y:100,size:160},600)).toEqual({x:316,y:316,size:600});
+  });
+  it('rotates freely but settles near upright and quarter turns',()=>{
+    expect(snapRotation(2.5)).toBe(0);expect(snapRotation(-88)).toBe(-90);expect(snapRotation(37)).toBe(37);
+    expect(rotatePlacement({...DEFAULT_PLACEMENT,rotation:170},30).rotation).toBe(-160);
+  });
 });

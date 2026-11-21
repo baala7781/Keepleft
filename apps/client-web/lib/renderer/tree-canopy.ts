@@ -33,8 +33,8 @@ export const treeLobes=(kind:TreeKind):Lobe[]=>{
 function attributes(g:THREE.BufferGeometry,foliage:boolean,height:number){
   const p=g.getAttribute('position'),colors=new Float32Array(p.count*3),mask=new Float32Array(p.count);
   for(let i=0;i<p.count;i++){
-    const light=foliage?.48+.52*Math.max(0,Math.min(1,p.getY(i)/height)):.53;
-    colors.set(foliage?[light*.94,light,light*.91]:[light*1.12,light*.98,light*.78],i*3);mask[i]=foliage?1:0;
+    const light=foliage?.52+.48*Math.max(0,Math.min(1,p.getY(i)/height)):.53;
+    colors.set(foliage?[light*.75,light*1.0,light*.68]:[light*1.12,light*.98,light*.78],i*3);mask[i]=foliage?1:0;
   }
   g.setAttribute('color',new THREE.BufferAttribute(colors,3));
   g.setAttribute('foliage',new THREE.BufferAttribute(mask,1));
@@ -85,6 +85,8 @@ function treeCards(kind:TreeKind){
 /** Small deterministic silhouette atlas, generated from the same lobes as the real meshes. No network assets. */
 export function treeAtlas(){
   const size=64,width=size*4,height=size*2,data=new Uint8Array(width*height*4);
+  // Soft rounded crowns: smooth light plus a gentle darkening toward each lobe edge.
+  // No outline and no per-pixel grain, which read as noise from the air.
   for(let type=0;type<4;type++)for(let top=0;top<2;top++){
     const kind=treeKinds[type],dim=treeDimensions(kind),lobes=treeLobes(kind);
     for(let py=0;py<size;py++)for(let px=0;px<size;px++){
@@ -96,15 +98,13 @@ export function treeAtlas(){
         const q=nx*nx+ny*ny;if(q>1)continue;
         const nz=Math.sqrt(1-q),surface=(top?ly:lz)+nz*(top?sy:sz);
         if(surface<=depth)continue;depth=surface;
-        const light=top?-.45*nx+.8*nz+.35*ny:-.45*nx+.8*ny+.35*nz;
-        const grain=.035*Math.sin(px*12.3+py*31.7+type*5);
-        // Preserve crown depth at aerial sizes: dark leaf pockets and a lit
-        // upper edge, instead of a uniformly bright pebble silhouette.
-        shade=Math.min(1,.43+.50*Math.max(0,light)+grain);
+        const light=Math.max(0,top?-.45*nx+.8*nz+.35*ny:-.45*nx+.8*ny+.35*nz);
+        shade=Math.min(1,(.56+.42*light)*(.84+.16*nz));
       }
-      if(depth===-Infinity&&!top&&Math.abs(x)<.18&&ordinate<dim.height*.45){depth=0;shade=.44;}
+      if(depth===-Infinity&&!top&&Math.abs(x)<.18&&ordinate<dim.height*.45){depth=0;shade=.5;}
       const offset=((top*size+py)*width+type*size+px)*4;
-      const c=Math.round((depth===-Infinity?.85:shade)*255);
+      // Empty pixels carry a mid-dark tone so mipmapped edges never glow.
+      const c=Math.round((depth===-Infinity?.45:shade)*255);
       data.set([c,c,c,depth===-Infinity?0:255],offset);
     }
   }

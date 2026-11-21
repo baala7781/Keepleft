@@ -24,7 +24,7 @@ export function ribbonGeometry(points:RoutePoint[],frame:LocalFrame){
   geometry.computeBoundingBox();if(positions.length){geometry.boundingBox!.expandByScalar(24);geometry.computeBoundingSphere();geometry.boundingSphere!.radius+=24;}
   return geometry;
 }
-export function routeWidthM(zoom:number,latitude:number){return Math.max(.25,Math.min(30,6.5*40075016.686*Math.cos(latitude*Math.PI/180)/(512*2**zoom)));}
+export function routeWidthM(zoom:number,latitude:number){return Math.max(.25,Math.min(30,5*40075016.686*Math.cos(latitude*Math.PI/180)/(512*2**zoom)));}
 /** Fixed slots keep the recorded prefix on the GPU. Only the changing tip (or
  * the changed suffix after a seek) is projected and uploaded again. */
 export class RibbonBuffer {
@@ -64,17 +64,34 @@ export class RibbonBuffer {
     this.points.length=points.length;for(let i=from;i<points.length;i++)this.points[i]={...points[i]};
   }
 }
-function ribbonMaterial(color:string){
+function ribbonMaterial(color:string,glow=false){
   return new THREE.ShaderMaterial({side:THREE.DoubleSide,depthTest:true,depthWrite:false,
     polygonOffset:true,polygonOffsetFactor:-1.0,polygonOffsetUnits:-4.0,
-    uniforms:{width:{value:1},color:{value:new THREE.Color(color)}},
-    vertexShader:'attribute vec2 offset; uniform float width; void main(){ vec3 p=position+vec3(offset.x,0.0,offset.y)*width*0.5; gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0); }',
-    fragmentShader:'uniform vec3 color; void main(){gl_FragColor=vec4(color,1.0);\n#include <colorspace_fragment>\n}',
+    toneMapped:glow?false:true,
+    uniforms:{width:{value:1},color:{value:new THREE.Color(color)},time:{value:0}},
+    vertexShader:`attribute vec2 offset; uniform float width; varying vec2 vOffset;
+      void main(){
+        vOffset=offset;
+        vec3 p=position+vec3(offset.x,0.0,offset.y)*width*0.5;
+        gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);
+      }`,
+    fragmentShader:`uniform vec3 color; uniform float time; varying vec2 vOffset;
+      void main(){
+        vec3 c=color;
+        ${glow?`
+          float dist=length(vOffset);
+          float centerGlow=1.0-smoothstep(0.0,0.85,dist);
+          float pulse=0.95+0.05*sin(time*1.2);
+          c=mix(c,c*1.8,centerGlow*0.5*pulse);
+        `:''}
+        gl_FragColor=vec4(c,1.0);
+        #include <colorspace_fragment>
+      }`,
   });
 }
 export function createRouteRibbon(frame:LocalFrame){
   const group=new THREE.Group();group.name='activity-route-ribbon';group.visible=false;
-  const edge=ribbonMaterial('#631e2c'),ink=ribbonMaterial(noir.route),gapInk=ribbonMaterial('#b86170');
+  const edge=ribbonMaterial('#631e2c',false),ink=ribbonMaterial(noir.route,true),gapInk=ribbonMaterial('#b86170',false);
   const buffer=new RibbonBuffer(frame);
   const casing=new THREE.Mesh(buffer.geometry,edge),core=new THREE.Mesh(casing.geometry,ink),gaps=new THREE.Mesh(new THREE.BufferGeometry(),gapInk);
   casing.frustumCulled=false;core.frustumCulled=false;
@@ -94,5 +111,6 @@ export function createRouteRibbon(frame:LocalFrame){
     gaps.geometry.dispose();gaps.geometry=ribbonGeometry(dashed,frame);
   };
   const setView=(zoom:number,lat:number)=>{group.visible=true;const width=routeWidthM(zoom,lat);edge.uniforms.width.value=width*1.45;ink.uniforms.width.value=width;gapInk.uniforms.width.value=width*.55;};
-  return {group,update,setView,dispose(){casing.geometry.dispose();gaps.geometry.dispose();edge.dispose();ink.dispose();gapInk.dispose();}};
+  const animate=(seconds:number)=>{ink.uniforms.time.value=seconds;};
+  return {group,update,setView,animate,dispose(){casing.geometry.dispose();gaps.geometry.dispose();edge.dispose();ink.dispose();gapInk.dispose();}};
 }

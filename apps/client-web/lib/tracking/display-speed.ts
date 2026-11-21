@@ -4,11 +4,19 @@ import type {ActivitySnapshot} from './activity';
 export class DisplaySpeed {
   private points:{time:number;distance:number}[]=[];
   private value=0;
-  constructor(private windowMs=8000){}
-  reset(){this.points=[];this.value=0;}
+  private staleSince:number|null=null;
+  /** One rejected or weak fix must not flash the speed to zero; a real signal loss still does. */
+  constructor(private windowMs=8000,private staleGraceMs=5000){}
+  reset(){this.points=[];this.value=0;this.staleSince=null;}
   read(snapshot:ActivitySnapshot,fresh=true){
     const {elapsedMs:time,distanceM:distance,status}=snapshot;
-    if(status!=='recording'||!fresh){this.reset();return 0;}
+    if(status!=='recording'){this.reset();return 0;}
+    if(!fresh){
+      this.staleSince??=time;
+      if(time>=this.staleSince&&time-this.staleSince<=this.staleGraceMs)return this.value;
+      this.reset();return 0;
+    }
+    this.staleSince=null;
     const last=this.points.at(-1);
     if(last&&(time<last.time||distance<last.distance||time-last.time>10000))this.reset();
     const prior=this.points.at(-1);
