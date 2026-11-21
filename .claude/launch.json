@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "apps/client-web", "run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "render-check",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "apps/client-web", "run", "test:render"],
+      "port": 3101
+    }
+  ]
+}
