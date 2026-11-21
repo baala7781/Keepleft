@@ -45,10 +45,37 @@ export default function MarketingLandingPage() {
         .filmstrip-track:hover {
           animation-play-state: paused;
         }
+        @keyframes draw-run {
+          from { stroke-dashoffset: 900; }
+          to   { stroke-dashoffset: 0; }
+        }
+        .run-card-outline {
+          stroke: rgba(227, 59, 99, 0.18);
+          transition: stroke 0.4s ease, filter 0.4s ease;
+        }
+        .run-card:hover .run-card-outline {
+          stroke: rgba(227, 59, 99, 0.55);
+          filter: drop-shadow(0 0 10px rgba(227,59,99,0.35));
+        }
+        .run-card-route {
+          stroke-dasharray: 900;
+          stroke-dashoffset: 900;
+        }
+        .run-card:hover .run-card-route {
+          animation: draw-run 1.6s cubic-bezier(0.4,0,0.2,1) forwards;
+        }
+        .run-card-city {
+          transition: opacity 0.3s ease, transform 0.4s ease;
+        }
+        .run-card:hover .run-card-city {
+          opacity: 0.6;
+          transform: scale(0.97);
+        }
         @media (prefers-reduced-motion: reduce) {
           .route-path  { animation: none; stroke-dashoffset: 0; }
           .filmstrip-track { animation: none; }
           .route-dot   { animation: none; }
+          .run-card:hover .run-card-route { animation: none; stroke-dashoffset: 0; }
         }
       `}</style>
 
@@ -292,6 +319,202 @@ export default function MarketingLandingPage() {
               alt="YourLeft 3D route rendered through a miniature city"
               className="w-full h-full object-cover"
             />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Run Cards ───────────────────────────────────────────── */}
+      <section className="py-28 sm:py-36 border-t border-white/5 bg-[#0e1012]">
+        <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-16">
+          <div className="mb-14">
+            <div className="text-[#e33b63] font-mono text-[11px] tracking-widest mb-5">RECORDED RUNS ——————</div>
+            <p className="text-[#4a4d52] text-sm max-w-sm leading-relaxed">
+              Every run builds a world. Hover to replay a route.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Card 1 — Prenzlauer Berg */}
+            <div className="run-card group relative bg-[#0b0c0e] border border-[#1a1d20] rounded-2xl overflow-hidden cursor-pointer hover:border-[#e33b63]/30 transition-colors duration-400">
+              <div className="p-5 pb-0">
+                <div className="text-[10px] font-mono text-[#383b3f] tracking-widest">22.11.2026</div>
+              </div>
+
+              {/* SVG canvas: outline + route */}
+              <div className="relative h-56 flex items-center justify-center overflow-hidden">
+                {/* City name behind */}
+                <div
+                  className="run-card-city absolute inset-0 flex items-center justify-center select-none pointer-events-none"
+                  aria-hidden="true"
+                >
+                  <span
+                    className="font-display font-extrabold text-white leading-none tracking-tight"
+                    style={{ fontSize: 'clamp(3.5rem, 9vw, 5.5rem)' }}
+                  >
+                    Berlin
+                  </span>
+                </div>
+
+                {/* SVG overlay */}
+                <svg viewBox="0 0 320 220" className="relative z-10 w-full h-full" fill="none" aria-hidden="true">
+                  {/* Neighborhood outline */}
+                  <path
+                    className="run-card-outline"
+                    d="M 90 50 L 130 38 L 175 42 L 210 55 L 230 80 L 228 115 L 215 140 L 195 158 L 165 170 L 130 172 L 100 162 L 78 142 L 68 115 L 70 82 Z"
+                    strokeWidth="1.5"
+                    fill="none"
+                  />
+                  {/* Route path */}
+                  <path
+                    className="run-card-route"
+                    d="M 95 155 C 100 140, 90 120, 100 105 C 110 90, 125 88, 135 78 C 145 68, 155 60, 170 65 C 185 70, 195 85, 200 100 C 205 115, 198 128, 190 138 C 182 148, 170 155, 155 158"
+                    stroke="#e33b63"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                  {/* Start dot */}
+                  <circle cx="95" cy="155" r="4" fill="#e33b63" opacity="0" className="group-hover:opacity-100 transition-opacity duration-700 delay-300" />
+                  {/* End dot */}
+                  <circle cx="155" cy="158" r="3.5" fill="#f3a1b5" opacity="0" className="group-hover:opacity-100 transition-opacity duration-700 delay-[1400ms]" />
+                </svg>
+              </div>
+
+              {/* Stats strip */}
+              <div className="border-t border-[#1a1d20] grid grid-cols-2 divide-x divide-[#1a1d20]">
+                <div className="px-5 py-4">
+                  <div className="text-[9px] font-mono text-[#383b3f] tracking-widest mb-1">DISTANCE</div>
+                  <div className="text-base font-display font-bold text-white tabular-nums">7.4 km</div>
+                </div>
+                <div className="px-5 py-4">
+                  <div className="text-[9px] font-mono text-[#383b3f] tracking-widest mb-1">PACE</div>
+                  <div className="text-base font-display font-bold text-white tabular-nums">5:12 /km</div>
+                </div>
+              </div>
+
+              <div className="px-5 py-4 border-t border-[#1a1d20] flex items-center justify-between">
+                <span className="text-xs text-[#4a4d52]">Prenzlauer Berg</span>
+                <Link href="/run" className="text-[11px] font-mono text-[#e33b63] tracking-wider opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-1">
+                  Replay <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Card 2 — Shoreditch */}
+            <div className="run-card group relative bg-[#0b0c0e] border border-[#1a1d20] rounded-2xl overflow-hidden cursor-pointer hover:border-[#e33b63]/30 transition-colors duration-400">
+              <div className="p-5 pb-0">
+                <div className="text-[10px] font-mono text-[#383b3f] tracking-widest">18.11.2026</div>
+              </div>
+
+              <div className="relative h-56 flex items-center justify-center overflow-hidden">
+                <div
+                  className="run-card-city absolute inset-0 flex items-center justify-center select-none pointer-events-none"
+                  aria-hidden="true"
+                >
+                  <span
+                    className="font-display font-extrabold text-white leading-none tracking-tight"
+                    style={{ fontSize: 'clamp(3.5rem, 9vw, 5.5rem)' }}
+                  >
+                    London
+                  </span>
+                </div>
+
+                <svg viewBox="0 0 320 220" className="relative z-10 w-full h-full" fill="none" aria-hidden="true">
+                  <path
+                    className="run-card-outline"
+                    d="M 100 44 L 148 36 L 190 48 L 218 70 L 232 100 L 225 135 L 205 158 L 175 170 L 140 174 L 108 165 L 82 145 L 72 118 L 76 85 Z"
+                    strokeWidth="1.5"
+                    fill="none"
+                  />
+                  <path
+                    className="run-card-route"
+                    d="M 108 162 C 115 148, 108 130, 118 118 C 128 106, 142 102, 152 92 C 162 82, 168 68, 182 70 C 196 72, 205 88, 208 104 C 211 120, 202 136, 192 146 C 182 156, 168 162, 152 164"
+                    stroke="#e33b63"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                  <circle cx="108" cy="162" r="4" fill="#e33b63" opacity="0" className="group-hover:opacity-100 transition-opacity duration-700 delay-300" />
+                  <circle cx="152" cy="164" r="3.5" fill="#f3a1b5" opacity="0" className="group-hover:opacity-100 transition-opacity duration-700 delay-[1400ms]" />
+                </svg>
+              </div>
+
+              <div className="border-t border-[#1a1d20] grid grid-cols-2 divide-x divide-[#1a1d20]">
+                <div className="px-5 py-4">
+                  <div className="text-[9px] font-mono text-[#383b3f] tracking-widest mb-1">DISTANCE</div>
+                  <div className="text-base font-display font-bold text-white tabular-nums">5.8 km</div>
+                </div>
+                <div className="px-5 py-4">
+                  <div className="text-[9px] font-mono text-[#383b3f] tracking-widest mb-1">PACE</div>
+                  <div className="text-base font-display font-bold text-white tabular-nums">5:38 /km</div>
+                </div>
+              </div>
+
+              <div className="px-5 py-4 border-t border-[#1a1d20] flex items-center justify-between">
+                <span className="text-xs text-[#4a4d52]">Shoreditch</span>
+                <Link href="/run" className="text-[11px] font-mono text-[#e33b63] tracking-wider opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-1">
+                  Replay <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Card 3 — Le Marais */}
+            <div className="run-card group relative bg-[#0b0c0e] border border-[#1a1d20] rounded-2xl overflow-hidden cursor-pointer hover:border-[#e33b63]/30 transition-colors duration-400 sm:col-span-2 lg:col-span-1">
+              <div className="p-5 pb-0">
+                <div className="text-[10px] font-mono text-[#383b3f] tracking-widest">14.11.2026</div>
+              </div>
+
+              <div className="relative h-56 flex items-center justify-center overflow-hidden">
+                <div
+                  className="run-card-city absolute inset-0 flex items-center justify-center select-none pointer-events-none"
+                  aria-hidden="true"
+                >
+                  <span
+                    className="font-display font-extrabold text-white leading-none tracking-tight"
+                    style={{ fontSize: 'clamp(3.5rem, 9vw, 5.5rem)' }}
+                  >
+                    Paris
+                  </span>
+                </div>
+
+                <svg viewBox="0 0 320 220" className="relative z-10 w-full h-full" fill="none" aria-hidden="true">
+                  <path
+                    className="run-card-outline"
+                    d="M 115 48 L 160 38 L 200 50 L 222 76 L 230 108 L 222 140 L 200 162 L 168 174 L 132 172 L 102 158 L 82 132 L 80 100 L 92 72 Z"
+                    strokeWidth="1.5"
+                    fill="none"
+                  />
+                  <path
+                    className="run-card-route"
+                    d="M 112 158 C 118 142, 110 124, 122 112 C 134 100, 148 97, 158 86 C 168 75, 175 62, 190 68 C 205 74, 212 92, 212 108 C 212 124, 204 138, 192 148 C 180 158, 165 163, 148 164"
+                    stroke="#e33b63"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                  <circle cx="112" cy="158" r="4" fill="#e33b63" opacity="0" className="group-hover:opacity-100 transition-opacity duration-700 delay-300" />
+                  <circle cx="148" cy="164" r="3.5" fill="#f3a1b5" opacity="0" className="group-hover:opacity-100 transition-opacity duration-700 delay-[1400ms]" />
+                </svg>
+              </div>
+
+              <div className="border-t border-[#1a1d20] grid grid-cols-2 divide-x divide-[#1a1d20]">
+                <div className="px-5 py-4">
+                  <div className="text-[9px] font-mono text-[#383b3f] tracking-widest mb-1">DISTANCE</div>
+                  <div className="text-base font-display font-bold text-white tabular-nums">6.2 km</div>
+                </div>
+                <div className="px-5 py-4">
+                  <div className="text-[9px] font-mono text-[#383b3f] tracking-widest mb-1">PACE</div>
+                  <div className="text-base font-display font-bold text-white tabular-nums">4:58 /km</div>
+                </div>
+              </div>
+
+              <div className="px-5 py-4 border-t border-[#1a1d20] flex items-center justify-between">
+                <span className="text-xs text-[#4a4d52]">Le Marais</span>
+                <Link href="/run" className="text-[11px] font-mono text-[#e33b63] tracking-wider opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-1">
+                  Replay <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </section>
