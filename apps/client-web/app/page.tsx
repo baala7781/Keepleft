@@ -59,17 +59,13 @@ export default function MarketingLandingPage() {
         }
         .run-card-route {
           stroke-dasharray: 900;
-          stroke-dashoffset: 900;
+          stroke-dashoffset: 0;
+          opacity: 0.45;
+          transition: opacity 0.4s ease;
         }
         .run-card:hover .run-card-route {
+          opacity: 1;
           animation: draw-run 1.6s cubic-bezier(0.4,0,0.2,1) forwards;
-        }
-        .run-card-city {
-          transition: opacity 0.3s ease, transform 0.4s ease;
-        }
-        .run-card:hover .run-card-city {
-          opacity: 0.6;
-          transform: scale(0.97);
         }
         @media (prefers-reduced-motion: reduce) {
           .route-path  { animation: none; stroke-dashoffset: 0; }
@@ -221,7 +217,7 @@ export default function MarketingLandingPage() {
           </div>
 
           <div className="rounded-2xl bg-[#0e1012] border border-[#1a1d20] overflow-hidden aspect-square flex items-center justify-center relative">
-            <svg viewBox="0 0 200 240" className="w-1/2 opacity-50" fill="none" aria-hidden="true">
+            <svg viewBox="0 0 200 240" className="w-3/4 opacity-90" fill="none" aria-hidden="true">
               <rect x="55" y="10" width="90" height="160" rx="10" stroke="#2a2d31" strokeWidth="1.5" />
               <rect x="63" y="20" width="74" height="120" rx="5" fill="#0b0c0e" />
               <line x1="75" y1="170" x2="125" y2="170" stroke="#2a2d31" strokeWidth="1.5" />
@@ -259,7 +255,7 @@ export default function MarketingLandingPage() {
           </div>
 
           <div className="lg:order-1 rounded-2xl bg-[#111214] border border-[#1a1d20] overflow-hidden aspect-square flex items-center justify-center relative">
-            <svg viewBox="0 0 220 220" className="w-3/4 opacity-55" fill="none" aria-hidden="true">
+            <svg viewBox="0 0 220 220" className="w-3/4 opacity-80" fill="none" aria-hidden="true">
               {/* isometric buildings */}
               <polygon points="30,110 65,92 65,130 30,148" fill="#1a1c1f" stroke="#252829" strokeWidth="1" />
               <polygon points="65,92 100,110 100,148 65,130" fill="#141618" stroke="#252829" strokeWidth="1" />
@@ -312,13 +308,50 @@ export default function MarketingLandingPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl bg-[#111214] border border-[#1a1d20] overflow-hidden aspect-square">
-            {/* oxlint-disable next/no-img-element */}
-            <img
-              src="/yourleft-feature.svg"
-              alt="YourLeft 3D route rendered through a miniature city"
-              className="w-full h-full object-cover"
-            />
+          <div className="rounded-2xl bg-[#111214] border border-[#1a1d20] overflow-hidden aspect-square flex items-center justify-center relative">
+            <svg viewBox="0 0 400 400" className="w-full h-full" fill="none" aria-hidden="true">
+              {/* Street grid */}
+              <line x1="0" y1="100" x2="400" y2="100" stroke="#1e2124" strokeWidth="8"/>
+              <line x1="0" y1="168" x2="400" y2="168" stroke="#1e2124" strokeWidth="6"/>
+              <line x1="0" y1="240" x2="400" y2="240" stroke="#1e2124" strokeWidth="8"/>
+              <line x1="0" y1="308" x2="400" y2="308" stroke="#1e2124" strokeWidth="6"/>
+              <line x1="80" y1="0" x2="80" y2="400" stroke="#1e2124" strokeWidth="6"/>
+              <line x1="160" y1="0" x2="160" y2="400" stroke="#1e2124" strokeWidth="8"/>
+              <line x1="240" y1="0" x2="240" y2="400" stroke="#1e2124" strokeWidth="6"/>
+              <line x1="320" y1="0" x2="320" y2="400" stroke="#1e2124" strokeWidth="8"/>
+              {/* City blocks */}
+              <rect x="88" y="108" width="64" height="52" fill="#161819" rx="2"/>
+              <rect x="168" y="108" width="64" height="52" fill="#141618" rx="2"/>
+              <rect x="248" y="108" width="64" height="52" fill="#181a1c" rx="2"/>
+              <rect x="328" y="108" width="64" height="52" fill="#161819" rx="2"/>
+              <rect x="88" y="176" width="64" height="56" fill="#181a1c" rx="2"/>
+              <rect x="168" y="176" width="64" height="56" fill="#161819" rx="2"/>
+              <rect x="248" y="176" width="64" height="56" fill="#141618" rx="2"/>
+              <rect x="328" y="176" width="64" height="56" fill="#181a1c" rx="2"/>
+              <rect x="88" y="248" width="64" height="52" fill="#141618" rx="2"/>
+              <rect x="168" y="248" width="64" height="52" fill="#181a1c" rx="2"/>
+              <rect x="248" y="248" width="64" height="52" fill="#161819" rx="2"/>
+              <rect x="328" y="248" width="64" height="52" fill="#141618" rx="2"/>
+              <rect x="0" y="108" width="72" height="52" fill="#181a1c" rx="2"/>
+              <rect x="0" y="176" width="72" height="56" fill="#141618" rx="2"/>
+              <rect x="0" y="248" width="72" height="52" fill="#181a1c" rx="2"/>
+              {/* Route ribbon */}
+              <path
+                d="M 40 340 L 40 240 L 160 240 L 160 168 L 160 100 L 240 100 L 240 168 L 320 168 L 320 100 L 390 100"
+                stroke="#e33b63"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle cx="40" cy="340" r="5.5" fill="#e33b63"/>
+              <circle cx="390" cy="100" r="4" fill="#f3a1b5"/>
+            </svg>
+            <div className="absolute top-6 left-6">
+              <div className="bg-[#0b0c0e]/80 backdrop-blur-sm border border-[#2a2d31] rounded-lg px-3 py-2 text-[11px] font-mono text-[#6e7278] flex items-center gap-2">
+                <span className="route-dot w-1.5 h-1.5 rounded-full bg-[#e33b63] block" />
+                FOLLOW MODE
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -344,13 +377,10 @@ export default function MarketingLandingPage() {
               <div className="relative h-56 flex items-center justify-center overflow-hidden">
                 {/* City name behind */}
                 <div
-                  className="run-card-city absolute inset-0 flex items-center justify-center select-none pointer-events-none"
+                  className="run-card-city absolute left-5 bottom-3 z-20 select-none pointer-events-none"
                   aria-hidden="true"
                 >
-                  <span
-                    className="font-display font-extrabold text-white leading-none tracking-tight"
-                    style={{ fontSize: 'clamp(3.5rem, 9vw, 5.5rem)' }}
-                  >
+                  <span className="font-display font-bold text-white text-2xl leading-none tracking-tight">
                     Berlin
                   </span>
                 </div>
@@ -408,13 +438,10 @@ export default function MarketingLandingPage() {
 
               <div className="relative h-56 flex items-center justify-center overflow-hidden">
                 <div
-                  className="run-card-city absolute inset-0 flex items-center justify-center select-none pointer-events-none"
+                  className="run-card-city absolute left-5 bottom-3 z-20 select-none pointer-events-none"
                   aria-hidden="true"
                 >
-                  <span
-                    className="font-display font-extrabold text-white leading-none tracking-tight"
-                    style={{ fontSize: 'clamp(3.5rem, 9vw, 5.5rem)' }}
-                  >
+                  <span className="font-display font-bold text-white text-2xl leading-none tracking-tight">
                     London
                   </span>
                 </div>
@@ -466,13 +493,10 @@ export default function MarketingLandingPage() {
 
               <div className="relative h-56 flex items-center justify-center overflow-hidden">
                 <div
-                  className="run-card-city absolute inset-0 flex items-center justify-center select-none pointer-events-none"
+                  className="run-card-city absolute left-5 bottom-3 z-20 select-none pointer-events-none"
                   aria-hidden="true"
                 >
-                  <span
-                    className="font-display font-extrabold text-white leading-none tracking-tight"
-                    style={{ fontSize: 'clamp(3.5rem, 9vw, 5.5rem)' }}
-                  >
+                  <span className="font-display font-bold text-white text-2xl leading-none tracking-tight">
                     Paris
                   </span>
                 </div>
@@ -523,21 +547,35 @@ export default function MarketingLandingPage() {
       <section className="py-20 border-t border-white/5 bg-[#0e1012] overflow-hidden" aria-hidden="true">
         <div className="relative">
           <div className="filmstrip-track flex gap-5 w-max">
-            {Array.from({ length: 12 }).map((_, i) => (
+            {([
+              { city: 'Berlin',    km: '7.4', path: 'M 30 110 C 60 90, 80 70, 110 60 C 140 50, 160 65, 180 55 C 200 45, 210 30, 230 25' },
+              { city: 'London',    km: '5.8', path: 'M 25 120 C 50 100, 60 80, 90 70 C 120 60, 150 70, 170 55 C 190 40, 205 35, 230 28' },
+              { city: 'Paris',     km: '6.2', path: 'M 28 115 C 55 95, 70 75, 100 65 C 130 55, 155 60, 175 48 C 195 36, 212 32, 232 22' },
+              { city: 'Tokyo',     km: '8.1', path: 'M 22 118 C 45 105, 65 85, 85 72 C 105 59, 135 65, 158 50 C 181 35, 200 28, 234 20' },
+              { city: 'NYC',       km: '9.3', path: 'M 30 112 C 50 98, 68 78, 92 68 C 116 58, 140 68, 162 52 C 184 36, 206 30, 232 24' },
+              { city: 'Amsterdam', km: '5.1', path: 'M 26 116 C 48 102, 72 82, 96 72 C 120 62, 142 66, 164 54 C 186 42, 208 34, 230 26' },
+              { city: 'Berlin',    km: '7.4', path: 'M 30 110 C 60 90, 80 70, 110 60 C 140 50, 160 65, 180 55 C 200 45, 210 30, 230 25' },
+              { city: 'London',    km: '5.8', path: 'M 25 120 C 50 100, 60 80, 90 70 C 120 60, 150 70, 170 55 C 190 40, 205 35, 230 28' },
+              { city: 'Paris',     km: '6.2', path: 'M 28 115 C 55 95, 70 75, 100 65 C 130 55, 155 60, 175 48 C 195 36, 212 32, 232 22' },
+              { city: 'Tokyo',     km: '8.1', path: 'M 22 118 C 45 105, 65 85, 85 72 C 105 59, 135 65, 158 50 C 181 35, 200 28, 234 20' },
+              { city: 'NYC',       km: '9.3', path: 'M 30 112 C 50 98, 68 78, 92 68 C 116 58, 140 68, 162 52 C 184 36, 206 30, 232 24' },
+              { city: 'Amsterdam', km: '5.1', path: 'M 26 116 C 48 102, 72 82, 96 72 C 120 62, 142 66, 164 54 C 186 42, 208 34, 230 26' },
+            ] as const).map((item, i) => (
               <div
                 key={i}
-                className="w-72 h-44 rounded-xl overflow-hidden bg-[#111214] border border-[#1a1d20] shrink-0"
+                className="w-72 h-44 rounded-xl overflow-hidden bg-[#111214] border border-[#1a1d20] shrink-0 relative"
               >
-                {/* oxlint-disable next/no-img-element */}
-                <img
-                  src="/yourleft-feature.svg"
-                  alt=""
-                  className="w-full h-full object-cover"
-                  style={{
-                    objectPosition: `${(i * 18) % 100}% 50%`,
-                    filter: `brightness(${0.6 + (i % 4) * 0.1})`,
-                  }}
-                />
+                <svg viewBox="0 0 260 140" className="absolute inset-0 w-full h-full" fill="none">
+                  {/* subtle grid */}
+                  {[0,1,2,3].map(r => <line key={r} x1="0" y1={35*r} x2="260" y2={35*r} stroke="#16181a" strokeWidth="1"/>)}
+                  {[0,1,2,3,4,5].map(c => <line key={c} x1={43*c} y1="0" x2={43*c} y2="140" stroke="#16181a" strokeWidth="1"/>)}
+                  <path d={item.path} stroke="#e33b63" strokeWidth="2" strokeLinecap="round" opacity={0.75 + (i % 4) * 0.06}/>
+                  <circle cx={item.path.match(/M (\d+)/)?.[1] ?? '30'} cy={item.path.match(/M \d+ (\d+)/)?.[1] ?? '110'} r="3" fill="#e33b63" opacity="0.9"/>
+                </svg>
+                <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between">
+                  <span className="font-display font-bold text-white text-xl leading-none">{item.city}</span>
+                  <span className="font-mono text-[10px] text-[#4a4d52] tracking-widest">{item.km} KM</span>
+                </div>
               </div>
             ))}
           </div>
