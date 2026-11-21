@@ -250,9 +250,6 @@ export default function MarketingLandingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
             {/* Left Narrative Column */}
             <div className="lg:col-span-5 space-y-6">
-              <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#e33b63]">
-                The Philosophy
-              </div>
               <h2 className="text-3xl sm:text-4xl font-extrabold font-display text-white tracking-tight leading-tight">
                 Running is about being present. Not staring at a screen.
               </h2>
@@ -314,9 +311,6 @@ export default function MarketingLandingPage() {
               <div className="rounded-2xl border border-[#2a2d31] bg-[#111214] p-6 sm:p-8 space-y-6">
                 <div className="flex items-center justify-between border-b border-[#202326] pb-4">
                   <div className="space-y-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-[#8d8d92]">
-                      Architecture Comparison
-                    </span>
                     <h3 className="text-xl font-bold text-white font-display">
                       Conventional Running Apps vs. YourLeft
                     </h3>
@@ -329,8 +323,8 @@ export default function MarketingLandingPage() {
                 <div className="space-y-4 text-sm">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="p-4 rounded-xl bg-[#0b0c0e] border border-[#202326] space-y-2">
-                      <div className="text-xs font-bold text-[#8d8d92] uppercase tracking-wider">
-                        Typical Running App
+                      <div className="text-xs font-semibold text-[#6e7278]">
+                        Other apps
                       </div>
                       <ul className="space-y-2 text-xs text-[#6e7278]">
                         <li className="flex items-start gap-2">
@@ -349,7 +343,7 @@ export default function MarketingLandingPage() {
                     </div>
 
                     <div className="p-4 rounded-xl bg-[#16181b] border border-[#e33b63]/30 space-y-2 shadow-inner">
-                      <div className="text-xs font-bold text-[#f3a1b5] uppercase tracking-wider flex items-center justify-between">
+                      <div className="text-xs font-bold text-[#f3a1b5] flex items-center justify-between">
                         <span>YourLeft</span>
                         <Sparkles className="w-3.5 h-3.5 text-[#e33b63]" />
                       </div>
@@ -387,9 +381,6 @@ export default function MarketingLandingPage() {
       <section id="how-it-works" className="py-20 sm:py-28 border-t border-[#1a1d20]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto space-y-4 mb-16">
-            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#e33b63]">
-              Simple &amp; Seamless
-            </div>
             <h2 className="text-3xl sm:text-5xl font-extrabold font-display text-white tracking-tight">
               Four steps from stride to story.
             </h2>
@@ -403,9 +394,7 @@ export default function MarketingLandingPage() {
             <div className="p-6 rounded-2xl bg-[#111214] border border-[#202326] hover:border-[#383b3f] transition-all flex flex-col justify-between group">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-bold text-[#e33b63] px-2 py-0.5 rounded bg-[#e33b63]/10">
-                    STEP 01
-                  </span>
+                  <span className="text-3xl font-extrabold font-display text-[#2a2d31] select-none">1</span>
                   <Smartphone className="w-5 h-5 text-[#8d8d92] group-hover:text-[#f3a1b5] transition-colors" />
                 </div>
                 <h3 className="text-lg font-bold text-white font-display">Move Outdoors</h3>
@@ -423,9 +412,7 @@ export default function MarketingLandingPage() {
             <div className="p-6 rounded-2xl bg-[#111214] border border-[#202326] hover:border-[#383b3f] transition-all flex flex-col justify-between group">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-bold text-[#e33b63] px-2 py-0.5 rounded bg-[#e33b63]/10">
-                    STEP 02
-                  </span>
+                  <span className="text-3xl font-extrabold font-display text-[#2a2d31] select-none">2</span>
                   <Layers className="w-5 h-5 text-[#8d8d92] group-hover:text-[#f3a1b5] transition-colors" />
                 </div>
                 <h3 className="text-lg font-bold text-white font-display">Synthesize the World</h3>
@@ -443,9 +430,7 @@ export default function MarketingLandingPage() {
             <div className="p-6 rounded-2xl bg-[#111214] border border-[#202326] hover:border-[#383b3f] transition-all flex flex-col justify-between group">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-bold text-[#e33b63] px-2 py-0.5 rounded bg-[#e33b63]/10">
-                    STEP 03
-                  </span>
+                  <span className="text-3xl font-extrabold font-display text-[#2a2d31] select-none">3</span>
                   <Camera className="w-5 h-5 text-[#8d8d92] group-hover:text-[#f3a1b5] transition-colors" />
                 </div>
                 <h3 className="text-lg font-bold text-white font-display">Cinematic Replay</h3>
@@ -463,9 +448,7 @@ export default function MarketingLandingPage() {
             <div className="p-6 rounded-2xl bg-[#111214] border border-[#202326] hover:border-[#383b3f] transition-all flex flex-col justify-between group">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-bold text-[#e33b63] px-2 py-0.5 rounded bg-[#e33b63]/10">
-                    STEP 04
-                  </span>
+                  <span className="text-3xl font-extrabold font-display text-[#2a2d31] select-none">4</span>
                   <Share2 className="w-5 h-5 text-[#8d8d92] group-hover:text-[#f3a1b5] transition-colors" />
                 </div>
                 <h3 className="text-lg font-bold text-white font-display">Share &amp; Protect</h3>
@@ -486,9 +469,6 @@ export default function MarketingLandingPage() {
       <section id="showcase" className="py-20 sm:py-28 border-t border-[#1a1d20] bg-[#0e1012]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto space-y-4 mb-16">
-            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#e33b63]">
-              Technical Craftsmanship
-            </div>
             <h2 className="text-3xl sm:text-5xl font-extrabold font-display text-white tracking-tight">
               Engineered for runners, designed for clarity.
             </h2>
@@ -732,15 +712,12 @@ export default function MarketingLandingPage() {
             </div>
 
             <div className="space-y-4 max-w-2xl mx-auto">
-              <div className="text-xs font-semibold uppercase tracking-widest text-[#f3a1b5]">
-                SAME ROADS. A CLEARER YOU.
-              </div>
               <h2 className="text-3xl sm:text-5xl font-extrabold font-display text-white tracking-tight leading-tight">
-                Ready to experience your run in 3D?
+                Ready to see your run in 3D?
               </h2>
               <p className="text-sm sm:text-base text-[#aaa9ac]">
-                Download YourLeft for Android today and turn your everyday routes into living miniature worlds.
-                Free, private, and requiring zero account setup.
+                Download YourLeft for Android and turn your everyday routes into living miniature worlds.
+                Free, private, zero account setup.
               </p>
             </div>
 
@@ -749,21 +726,18 @@ export default function MarketingLandingPage() {
               <button
                 type="button"
                 onClick={() => alert('YourLeft is currently in private beta review. You can explore the live 3D web experience right now via the Web Demo button!')}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl text-base font-bold bg-[#e33b63] hover:bg-[#c92f54] active:scale-[0.98] text-white shadow-xl shadow-[#e33b63]/25 transition-all group"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-lg text-sm font-semibold bg-[#e33b63] hover:bg-[#d62954] active:scale-[0.97] text-white shadow-lg shadow-[#e33b63]/20 transition-all"
               >
-                <Download className="w-5 h-5 text-white" />
-                <span>Get on Google Play</span>
-                <span className="text-xs font-normal opacity-80 px-2 py-0.5 rounded bg-black/20">
-                  Free
-                </span>
+                <Download className="w-4 h-4" />
+                <span>Get Android Beta</span>
               </button>
 
               <Link
                 href="/run"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-4 rounded-xl text-base font-semibold bg-[#111214] hover:bg-[#1d1f22] border border-[#2e3236] text-[#f5f5f5] transition-all"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-lg text-sm font-semibold bg-transparent hover:bg-[#ffffff]/5 border border-[#383b3f] hover:border-[#e33b63]/50 text-[#f5f5f5] transition-all group"
               >
-                <span>Launch Web Experience</span>
-                <ArrowRight className="w-4 h-4 text-[#e33b63]" />
+                <span>Launch Web Demo</span>
+                <ArrowRight className="w-4 h-4 text-[#e33b63] group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </div>
 
