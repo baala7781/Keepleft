@@ -1207,7 +1207,7 @@ a {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 16px;
+  gap: 24px;
   padding: 12px 0;
 }
 
@@ -3707,35 +3707,38 @@ a {
 .kl-share-presets {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  margin: 4px 0 12px;
+  gap: 10px;
+  margin: 8px 0 20px;
   border: 0;
   padding: 0;
 }
 
 .kl-share-presets legend {
   color: var(--text-subtle);
-  font-size: .75rem;
+  font-size: .8rem;
+  font-weight: 500;
   letter-spacing: .08em;
   text-transform: uppercase;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .kl-share-presets button {
-  min-height: 48px;
-  padding: 6px;
-  border: 1px solid #48474b;
-  border-radius: 8px;
+  min-height: 64px;
+  padding: 10px 8px;
+  border: 1.5px solid #48474b;
+  border-radius: 10px;
   background: #151618;
   color: var(--text-main);
   font: inherit;
-  font-size: .75rem;
+  font-size: .82rem;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .kl-share-presets button[aria-pressed=true] {
   border-color: var(--accent-primary);
   background: #301920;
+  box-shadow: 0 0 0 1px var(--accent-primary) inset;
 }
 
 .kl-share-presets button:disabled {
@@ -3745,9 +3748,9 @@ a {
 
 .kl-share-presets small {
   display: block;
-  margin-top: 3px;
+  margin-top: 4px;
   color: var(--text-subtle);
-  font-size: .7rem;
+  font-size: .72rem;
 }
 
 .kl-story-editor .kl-share-copy {

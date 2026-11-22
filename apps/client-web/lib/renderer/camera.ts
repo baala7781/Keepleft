@@ -7,12 +7,12 @@ export function overviewZoom(viewportWidth:number) {
 export function chaseCamera(point:{lng:number;lat:number;heading:number},height:number) {
   const bearing=180-point.heading*180/Math.PI;
   const radians=bearing*Math.PI/180,cosLat=Math.max(.08,Math.cos(point.lat*Math.PI/180));
-  const lng=((point.lng+Math.sin(radians)*.25/(111320*cosLat)+540)%360)-180;
-  const lat=Math.max(-85,Math.min(85,point.lat+Math.cos(radians)*.25/111320));
+  const lng=((point.lng+Math.sin(radians)*.45/(111320*cosLat)+540)%360)-180;
+  const lat=Math.max(-85,Math.min(85,point.lat+Math.cos(radians)*.45/111320));
   // MapLibre's default vertical FOV gives a camera-to-center distance of 1.5× viewport height.
-  const distanceM=24;
-  const zoom=Math.max(19,Math.min(24,Math.log2(1.5*Math.max(200,height)*40075016.686*cosLat/(512*distanceM))));
-  return {center:{lng,lat},bearing,pitch:62,zoom};
+  const distanceM=40;
+  const zoom=Math.max(18.5,Math.min(22,Math.log2(1.5*Math.max(200,height)*40075016.686*cosLat/(512*distanceM))));
+  return {center:{lng,lat},bearing,pitch:60,zoom};
 }
 
 export function turnToward(current:number,target:number,blend:number) {
@@ -26,7 +26,7 @@ export type CameraControls={mode:CameraMode;reducedMotion:boolean;revision:numbe
 export type CameraPose={center:{lng:number;lat:number};bearing:number;zoom:number;pitch:number};
 export function baseCamera(mode:CameraMode,point:{lng:number;lat:number;heading:number},origin:{lng:number;lat:number},width:number,height:number):CameraPose {
   if(mode==='chase')return chaseCamera(point,height);
-  return {center:mode==='follow'||mode==='orbit'?point:origin,bearing:mode==='follow'?180-point.heading*180/Math.PI:-25,zoom:mode==='follow'?18:overviewZoom(width),pitch:mode==='follow'?50:58};
+  return {center:mode==='follow'||mode==='orbit'?point:origin,bearing:mode==='follow'?180-point.heading*180/Math.PI:-25,zoom:mode==='follow'?19.5:mode==='orbit'?17.5:overviewZoom(width),pitch:mode==='follow'?58:mode==='orbit'?62:58};
 }
 /** Follow resumes centred on the athlete; user zoom/tilt/relative bearing stay intact. */
 export function trackingAdjustment(mode:CameraMode,base:CameraPose,current:CameraPose):CameraAdjustment{

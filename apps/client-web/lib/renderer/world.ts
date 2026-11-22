@@ -20,6 +20,7 @@ import {activityProfiles} from '../tracking/tracking-config';
 import {createRoadWorld} from './roads';
 import {createWaterWorld} from './water';
 import {createRouteRibbon} from './route-ribbon';
+import {createRouteMarkers} from './route-markers';
 import {applyAssembly} from './world-assembly';
 import {createBuildingWorld} from './building-world';
 import {loadDemoTerrain} from './demo-terrain';
@@ -86,6 +87,7 @@ export function createWorldLayer(
     terrainHeight=heightAt;details.setElevation(heightAt);root.add(mesh);map?.triggerRepaint();
   }).catch(e=>{console.warn('[World] Demo terrain load failed (non-blocking):',e instanceof Error?e.message:'unknown error');});
   const ribbon=createRouteRibbon(worldFrame);root.add(ribbon.group);
+  const markers=createRouteMarkers(worldFrame);root.add(markers.group);
   let blocks=cameraBlocks(forms);
   const needsRoadPresentation=runtime.source!=='demo'&&!runtime.isDemoReplay&&runtime.activityType!=='cycle'&&runtime.roadAlignmentRecommended!==false;
   const emptyWorld:WorldData={type:'FeatureCollection',features:[]};
@@ -258,6 +260,25 @@ export function createWorldLayer(
         const trail=routePresentation.trail(shown,aligned),gaps=routePresentation.gaps(raw,aligned);
         trailPoints=trail;
         ribbon.update(trail,gaps);
+        // Update KM markers with cumulative distances
+        if(isReplay&&trail.length>0){
+          const distances:number[]=[];
+          let cumulative=0;
+          distances.push(0);
+          for(let i=1;i<trail.length;i++){
+            if(!trail[i].breakBefore){
+              const prev=trail[i-1],curr=trail[i];
+              const dx=(curr.lng-prev.lng)*111320*Math.cos(prev.lat*Math.PI/180);
+              const dy=(curr.lat-prev.lat)*111320;
+              cumulative+=Math.hypot(dx,dy);
+            }
+            distances.push(cumulative);
+          }
+          markers.update(trail,distances);
+          markers.setVisible(true);
+        }else{
+          markers.setVisible(false);
+        }
         if(now>=routeAt&&!routePending){
           const routeStart=performance.now();
           routeAt=now+200;
@@ -371,7 +392,7 @@ export function createWorldLayer(
       replacements?.dispose();preparationWork?.dispose();
       work?.dispose();
       if(athlete){root.remove(athlete.group);athlete.dispose();}
-      root.remove(roads.group,ribbon.group,buildings.group);roads.dispose();ribbon.dispose();buildings.dispose();
+      root.remove(roads.group,ribbon.group,markers.group,buildings.group);roads.dispose();ribbon.dispose();markers.dispose();buildings.dispose();
       const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();
       scene.traverse(o=>{
         if (o instanceof THREE.Mesh||o instanceof THREE.Points) { geometries.add(o.geometry); for(const m of Array.isArray(o.material)?o.material:[o.material]) materials.add(m); }
